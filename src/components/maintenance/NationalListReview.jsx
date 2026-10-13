@@ -1,3 +1,4 @@
+import { authedFetch } from '../../lib/apiClient.js';
 import { useState, useEffect } from 'react';
 import { Bell, ShieldCheck, AlertCircle, ExternalLink, RefreshCw, CheckCircle } from 'lucide-react';
 import { getReceipts } from '../../lib/db.js';
@@ -39,7 +40,7 @@ export default function NationalListReview({ userId, profile }) {
     ).join('\n');
 
     try {
-      const res = await fetch('/api/claude', {
+      const res = await authedFetch('/api/claude', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

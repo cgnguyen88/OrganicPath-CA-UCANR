@@ -1,3 +1,4 @@
+import { authedFetch } from '../lib/apiClient.js';
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Sparkles, CheckCircle, ChevronDown, Pencil } from 'lucide-react';
@@ -12,7 +13,7 @@ const STEP_COLORS = ['#3AA8E4', '#FDBD10', '#1B6B2E', '#005FAE', '#7c3aed', '#bd
 
 async function streamClaude(messages, onChunk, system) {
   try {
-    const res = await fetch('/api/claude', {
+    const res = await authedFetch('/api/claude', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages, system, stream: true }),

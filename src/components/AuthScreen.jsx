@@ -3,34 +3,53 @@ import { Leaf, Mail, Lock, User } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext.jsx';
 import t from '../data/translations.js';
 import { supabase } from '../lib/supabase.js';
+import { buildSignUpPayload, interpretSignUp, FARM_NAME_MAX } from '../lib/registration.js';
+
+function registrationError({ field, code }, lang) {
+  if (field === 'farmName' && code === 'too_long') {
+    return lang === 'es'
+      ? `El nombre de la finca debe tener ${FARM_NAME_MAX} caracteres o menos.`
+      : `Farm name must be ${FARM_NAME_MAX} characters or fewer.`;
+  }
+  return lang === 'es' ? 'Todos los campos son obligatorios.' : 'All fields are required.';
+}
 
 export default function AuthScreen({ onLogin }) {
   const { lang } = useLanguage();
   const tx = t[lang].auth;
   const [mode, setMode] = useState('login');
-  const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [form, setForm] = useState({ name: '', farmName: '', email: '', password: '' });
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setNotice('');
     setLoading(true);
 
     try {
       if (mode === 'register') {
-        if (!form.name || !form.email || !form.password) {
-          setError('All fields are required.');
+        const built = buildSignUpPayload(form);
+        if (!built.ok) {
+          setError(registrationError(built, lang));
           return;
         }
-        const { data, error: signUpError } = await supabase.auth.signUp({
-          email: form.email,
-          password: form.password,
-          options: { data: { name: form.name } },
-        });
+        const { data, error: signUpError } = await supabase.auth.signUp(built.payload);
         if (signUpError) throw signUpError;
-        if (data.user) {
-          onLogin({ id: data.user.id, name: form.name, email: data.user.email, session: data.session, isNew: true });
+        const outcome = interpretSignUp(data);
+        if (outcome.kind === 'confirm-email') {
+          // No session yet: do NOT act signed in. They must click the emailed link first.
+          setNotice(lang === 'es'
+            ? `Cuenta creada. Revisa ${outcome.email} y haz clic en el enlace de confirmación; luego inicia sesión.`
+            : `Account created. Check ${outcome.email} and click the confirmation link, then sign in.`);
+          setMode('login');
+          setForm({ name: '', farmName: '', email: form.email, password: '' });
+        } else if (outcome.kind === 'signed-in') {
+          onLogin({ id: data.user.id, name: built.payload.options.data.name, email: data.user.email, session: data.session, isNew: true });
+        } else {
+          setError(lang === 'es' ? 'No se pudo crear la cuenta. Inténtalo de nuevo.' : 'Could not create the account. Please try again.');
         }
       } else {
         const { data, error: signInError } = await supabase.auth.signInWithPassword({
@@ -115,6 +134,16 @@ export default function AuthScreen({ onLogin }) {
             {tx.subtitle}
           </p>
 
+          {notice && (
+            <div role="status" style={{
+              background: '#f0fdf4', border: '1px solid #bbf7d0',
+              color: '#166534', borderRadius: 8, padding: '10px 14px',
+              fontSize: 14, marginBottom: 20,
+            }}>
+              {notice}
+            </div>
+          )}
+
           {error && (
             <div style={{
               background: '#fef2f2', border: '1px solid #fecaca',
@@ -132,6 +161,16 @@ export default function AuthScreen({ onLogin }) {
                 <div style={{ position: 'relative' }}>
                   <User size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#aaa' }} />
                   <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={inputStyle} placeholder={tx.name} />
+                </div>
+              </div>
+            )}
+
+            {mode === 'register' && (
+              <div>
+                <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--u-navy)', display: 'block', marginBottom: 6 }}>{tx.farmName}</label>
+                <div style={{ position: 'relative' }}>
+                  <Leaf size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#aaa' }} />
+                  <input type="text" value={form.farmName} maxLength={FARM_NAME_MAX} onChange={e => setForm({ ...form, farmName: e.target.value })} style={inputStyle} placeholder={tx.farmName} />
                 </div>
               </div>
             )}

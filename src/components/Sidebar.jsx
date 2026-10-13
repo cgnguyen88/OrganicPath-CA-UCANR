@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext.jsx';
 import t from '../data/translations.js';
+import RecordsNav from './records/RecordsNav.jsx';
 
 // Per-item accent colors for icon badges
 const ITEM_COLORS = {
@@ -15,7 +16,7 @@ const ITEM_COLORS = {
   tracker:     { from: '#8b5cf6', to: '#6d28d9' },
   osp:         { from: '#f97316', to: '#ea580c' },
   eligibility: { from: '#0ea5e9', to: '#0284c7' },
-  records:     { from: '#14b8a6', to: '#0d9488' },
+  recordGenerators: { from: '#14b8a6', to: '#0d9488' },
   receipts:    { from: '#ec4899', to: '#db2777' },
   certifiers:  { from: '#f59e0b', to: '#d97706' },
   soilLabs:    { from: '#84cc16', to: '#65a30d' },
@@ -26,7 +27,7 @@ const ITEM_COLORS = {
   occsp:       { from: '#eab308', to: '#ca8a04' },
 };
 
-export default function Sidebar({ activePage, onNavigate, user, onLogout, certificationStatus, onChangeStatus, onSetStatus }) {
+export default function Sidebar({ activePage, onNavigate, user, farm, onLogout, certificationStatus, onChangeStatus, onSetStatus, needsReviewCount = 0, savedViews = [] }) {
   const { lang, toggleLang } = useLanguage();
   const tx = t[lang].nav;
 
@@ -41,7 +42,7 @@ export default function Sidebar({ activePage, onNavigate, user, onLogout, certif
 
   const TOOLS_ITEMS = [
     { id: 'eligibility', icon: ClipboardCheck },
-    { id: 'records',     icon: Microscope },
+    { id: 'recordGenerators', icon: Microscope },
     { id: 'receipts',    icon: Receipt },
     { id: 'certifiers',  icon: Users },
     { id: 'soilLabs',    icon: FlaskConical },
@@ -248,6 +249,8 @@ export default function Sidebar({ activePage, onNavigate, user, onLogout, certif
 
         {NAV_ITEMS.map(({ id, icon }) => <NavBtn key={id} id={id} icon={icon} />)}
 
+        {farm && <RecordsNav activePage={activePage} onNavigate={onNavigate} needsReviewCount={needsReviewCount} savedViews={savedViews} />}
+
         {/* Section divider: Compliance Tools */}
         <div style={{ marginTop: 18, marginBottom: 8 }}>
           <div style={{
@@ -334,6 +337,11 @@ export default function Sidebar({ activePage, onNavigate, user, onLogout, certif
               <div style={{ color: 'rgba(255,255,255,0.38)', fontSize: 10.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {user.email}
               </div>
+              {farm && (
+                <div title={farm.farm_code} style={{ color: 'rgba(253,189,16,0.7)', fontSize: 10, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {farm.name} · {farm.farm_code}
+                </div>
+              )}
             </div>
             <motion.button
               onClick={onLogout}

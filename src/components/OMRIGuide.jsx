@@ -1,3 +1,4 @@
+import { authedFetch } from '../lib/apiClient.js';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -145,7 +146,7 @@ const SEVERITY_LABELS = { high: 'High Risk', medium: 'Medium Risk', low: 'Import
 // ── Claude verification ───────────────────────────────────────────────────────
 
 async function verifyWithClaude(material, category, notes) {
-  const res = await fetch('/api/claude', {
+  const res = await authedFetch('/api/claude', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

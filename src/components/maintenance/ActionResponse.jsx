@@ -1,3 +1,4 @@
+import { authedFetch } from '../../lib/apiClient.js';
 import { useState } from 'react';
 import { AlertTriangle, FileEdit, Copy, CheckCheck, RefreshCw, Download } from 'lucide-react';
 
@@ -13,7 +14,7 @@ When drafting corrective action responses:
 
 async function streamClaude(messages, system, onChunk, onError) {
   try {
-    const res = await fetch('/api/claude', {
+    const res = await authedFetch('/api/claude', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages, system, stream: true }),

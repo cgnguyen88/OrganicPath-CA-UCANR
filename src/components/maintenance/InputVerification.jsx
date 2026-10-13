@@ -1,3 +1,4 @@
+import { authedFetch } from '../../lib/apiClient.js';
 import { useState, useEffect } from 'react';
 import { Layers, CheckCircle, AlertTriangle, RefreshCw, Search, Info, Plus, X, CheckCheck } from 'lucide-react';
 import { getReceipts } from '../../lib/db.js';
@@ -78,7 +79,7 @@ export default function InputVerification({ userId }) {
     setVerifyResult('');
     setVerifyError('');
     try {
-      const res = await fetch('/api/claude', {
+      const res = await authedFetch('/api/claude', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

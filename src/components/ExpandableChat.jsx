@@ -1,3 +1,6 @@
+import { authedFetch } from '../lib/apiClient.js';
+import { dropLeadingAssistantTurns, describeChatError } from '../lib/chatMessages.js';
+import { renderChatMarkdown } from '../utils/safeMarkdown.js';
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, ChevronDown, Carrot, Paperclip, FileText, Image, File, AlertCircle } from 'lucide-react';
@@ -84,7 +87,7 @@ async function callClaude(messages, onChunk, lang) {
   try {
     const systemMsg = JIMMY_SYSTEM + (lang === 'es' ? '\n\nIMPORTANT: The user is using the Spanish interface. Respond in Spanish unless they write in English.' : '');
 
-    const res = await fetch('/api/claude', {
+    const res = await authedFetch('/api/claude', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -94,7 +97,7 @@ async function callClaude(messages, onChunk, lang) {
       }),
     });
 
-    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    if (!res.ok) throw Object.assign(new Error(`API error: ${res.status}`), { status: res.status });
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
@@ -121,17 +124,8 @@ async function callClaude(messages, onChunk, lang) {
       }
     }
   } catch (err) {
-    onChunk(lang === 'es'
-      ? '\n\n[Error conectando con Jimmy. Por favor intenta de nuevo.]'
-      : '\n\n[Error connecting to Jimmy. Please try again.]');
+    onChunk(`\n\n[${describeChatError(err, lang)}]`);
   }
-}
-
-function renderMarkdown(text) {
-  return text
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/\n/g, '<br/>');
 }
 
 // Build the API-formatted message content from display message
@@ -289,7 +283,7 @@ export default function ExpandableChat({ profile }) {
       ? `[Context: User's operation is "${profile.operationName}", type: ${profile.operationType || 'unknown'}, crops: ${profile.crops || 'unknown'}, county: ${profile.county || 'California'}]\n\n`
       : '';
 
-    const apiMessages = newMessages.map((m, i) => {
+    const apiMessages = dropLeadingAssistantTurns(newMessages).map((m, i) => {
       const apiContent = toApiContent(m);
       if (i === 0 && m.role === 'user') {
         return { role: m.role, content: typeof apiContent === 'string' ? contextMsg + apiContent : apiContent };
@@ -488,7 +482,7 @@ export default function ExpandableChat({ profile }) {
                         ) : (
                           <div
                             style={{ whiteSpace: 'pre-wrap' }}
-                            dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
+                            dangerouslySetInnerHTML={{ __html: renderChatMarkdown(msg.content) }}
                           />
                         )}
                       </div>

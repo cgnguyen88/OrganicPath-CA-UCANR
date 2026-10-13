@@ -1,3 +1,4 @@
+import { authedFetch } from '../lib/apiClient.js';
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Download, Copy, CheckCheck, Leaf, FlaskConical, Archive } from 'lucide-react';
@@ -26,7 +27,7 @@ Always:
 
 async function streamClaude(prompt, onChunk, onError) {
   try {
-    const res = await fetch('/api/claude', {
+    const res = await authedFetch('/api/claude', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

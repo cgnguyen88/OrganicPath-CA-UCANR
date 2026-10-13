@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { RECEIPT_FILE_ACCEPT, validateReceiptFile } from '../lib/receiptFiles.js';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Receipt, Trash2, Download, Search, Plus, FileText, DollarSign, Calendar } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext.jsx';
@@ -7,9 +8,23 @@ import {
   addReceipt as dbAddReceipt,
   deleteReceipt as dbDeleteReceipt,
   uploadReceiptFile,
+  deleteReceiptFile,
 } from '../lib/db.js';
 
 // Map Supabase snake_case row → component camelCase shape
+const FILE_ERRORS = {
+  type: {
+    en: 'File type not allowed. Use JPG, PNG, WEBP, HEIC or PDF.',
+    es: 'Tipo de archivo no permitido. Usa JPG, PNG, WEBP, HEIC o PDF.',
+  },
+  size: { en: 'That file is larger than 10 MB.', es: 'El archivo supera los 10 MB.' },
+  upload: {
+    en: "Couldn't upload the file. Check your connection and try again. The receipt was not saved.",
+    es: 'No se pudo subir el archivo. Revisa tu conexión e inténtalo de nuevo. El recibo no se guardó.',
+  },
+};
+const fileErrorMessage = (code, lang) => FILE_ERRORS[code][lang === 'es' ? 'es' : 'en'];
+
 function toLocal(row) {
   return {
     id: row.id,
@@ -24,7 +39,7 @@ function toLocal(row) {
     invoiceNumber: row.invoice_number,
     notes: row.notes,
     fileName: row.file_name,
-    fileUrl: row.file_url,
+    filePath: row.file_path,
     addedAt: row.added_at,
   };
 }
@@ -61,6 +76,7 @@ export default function ReceiptManager({ userId }) {
   const [filePreview, setFilePreview] = useState(null);
   const [pendingFile, setPendingFile] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const fileRef = useRef();
 
   // Load receipts from Supabase on mount
@@ -72,6 +88,13 @@ export default function ReceiptManager({ userId }) {
   const handleFile = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    const check = validateReceiptFile(file);
+    if (!check.ok) {
+      e.target.value = '';
+      setSaveError(fileErrorMessage(check.code, lang));
+      return;
+    }
+    setSaveError('');
     setPendingFile(file);
     setForm(f => ({ ...f, fileName: file.name }));
     if (file.type.startsWith('image/')) {
@@ -86,14 +109,23 @@ export default function ReceiptManager({ userId }) {
   const addReceipt = async () => {
     if (!form.supplier || !form.product || !userId) return;
     setSaving(true);
-    let fileUrl = null;
+    let filePath = null;
     let fileName = form.fileName;
+    setSaveError('');
     if (pendingFile) {
       const result = await uploadReceiptFile(userId, pendingFile);
-      if (result) { fileUrl = result.url; fileName = pendingFile.name; }
+      if (!result) {
+        // Keep the form open: saving the receipt without its file would silently lose the attachment.
+        setSaveError(fileErrorMessage('upload', lang));
+        setSaving(false);
+        return;
+      }
+      filePath = result.path;
+      fileName = pendingFile.name;
     }
-    const row = await dbAddReceipt(userId, { ...form, fileName, fileUrl });
+    const row = await dbAddReceipt(userId, { ...form, fileName, filePath });
     if (row) setReceipts(prev => [toLocal(row), ...prev]);
+    else if (filePath) await deleteReceiptFile(filePath); // don't leave an orphaned upload
     setForm(EMPTY_FORM);
     setFilePreview(null);
     setPendingFile(null);
@@ -102,8 +134,7 @@ export default function ReceiptManager({ userId }) {
   };
 
   const deleteReceipt = async (id) => {
-    await dbDeleteReceipt(id);
-    setReceipts(prev => prev.filter(r => r.id !== id));
+    if (await dbDeleteReceipt(id)) setReceipts(prev => prev.filter(r => r.id !== id));
   };
 
   const exportCSV = () => {
@@ -296,15 +327,20 @@ export default function ReceiptManager({ userId }) {
                       <div style={{ color: '#94a3b8', fontSize: 13 }}>
                         <Upload size={20} style={{ margin: '0 auto 6px' }} />
                         <p>{lang === 'es' ? 'Haz clic para subir foto o PDF del recibo' : 'Click to upload receipt photo or PDF'}</p>
-                        <p style={{ fontSize: 11, marginTop: 2 }}>JPG, PNG, PDF</p>
+                        <p style={{ fontSize: 11, marginTop: 2 }}>JPG, PNG, WEBP, HEIC, PDF · max 10 MB</p>
                       </div>
                     )}
-                    <input ref={fileRef} type="file" accept="image/*,.pdf" onChange={handleFile} style={{ display: 'none' }} />
+                    <input ref={fileRef} type="file" accept={RECEIPT_FILE_ACCEPT} onChange={handleFile} style={{ display: 'none' }} />
                   </div>
                 </div>
               </div>
+              {saveError && (
+                <div role="alert" style={{ marginTop: 14, padding: '9px 12px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', fontSize: 13 }}>
+                  {saveError}
+                </div>
+              )}
               <div style={{ display: 'flex', gap: 10, marginTop: 18, justifyContent: 'flex-end' }}>
-                <button onClick={() => { setShowForm(false); setFilePreview(null); }} style={{
+                <button onClick={() => { setShowForm(false); setFilePreview(null); setSaveError(''); }} style={{
                   padding: '9px 18px', borderRadius: 9, border: '1.5px solid #e2e8f0', background: 'white', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#475569',
                 }}>{tx.cancel}</button>
                 <button onClick={addReceipt} disabled={!form.supplier || !form.product || saving} style={{

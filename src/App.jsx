@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from './lib/supabase.js';
-import { getProfile, upsertProfile } from './lib/db.js';
+import { getProfile, upsertProfile, ensureMyFarm, getFarm } from './lib/db.js';
 import { saveToStorage, loadFromStorage } from './utils/storage.js';
 import AuthScreen from './components/AuthScreen.jsx';
 import Sidebar from './components/Sidebar.jsx';
@@ -20,14 +20,31 @@ import MaintenanceModule from './components/MaintenanceModule.jsx';
 import OMRIGuide from './components/OMRIGuide.jsx';
 import FoodSafetyGuide from './components/FoodSafetyGuide.jsx';
 import FederalCodeGuide from './components/FederalCodeGuide.jsx';
+import RecordsPage from './components/records/RecordsPage.jsx';
+import useRecordsMeta from './components/records/useRecordsMeta.js';
+import { parseRecordsRoute } from './lib/recordsRoute.js';
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [activePage, setActivePage] = useState('dashboard');
   const [profile, setProfile] = useState({});
+  const [farm, setFarm] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   // True when a brand-new signup just completed — always show the gate
   const [forceGate, setForceGate] = useState(false);
+
+  // Every account belongs to a farm; this also repairs accounts whose sign-up
+  // provisioning was missed. Idempotent.
+  const farmRequest = useRef(0);
+  const loadFarm = async () => {
+    const ticket = ++farmRequest.current;
+    const farmId = await ensureMyFarm();
+    const nextFarm = await getFarm(farmId);
+    // A newer lookup, or a sign-out, happened while this one was in flight: drop the stale result.
+    if (ticket === farmRequest.current) setFarm(nextFarm);
+  };
+
+  const recordsMeta = useRecordsMeta({ farm, userId: user?.id });
 
   // On mount: restore session from Supabase
   useEffect(() => {
@@ -37,6 +54,7 @@ export default function App() {
         const name = u.user_metadata?.name || u.email.split('@')[0];
         setUser({ id: u.id, name, email: u.email });
         loadUserProfile(u.id);
+        loadFarm();
       }
       setAuthLoading(false);
     });
@@ -48,9 +66,12 @@ export default function App() {
         const name = u.user_metadata?.name || u.email.split('@')[0];
         setUser({ id: u.id, name, email: u.email });
         loadUserProfile(u.id);
+        loadFarm();
       } else {
         setUser(null);
         setProfile({});
+        farmRequest.current += 1;
+        setFarm(null);
       }
     });
 
@@ -81,6 +102,8 @@ export default function App() {
     await supabase.auth.signOut();
     setUser(null);
     setProfile({});
+    farmRequest.current += 1;
+    setFarm(null);
   };
 
   const updateProfile = (data) => {
@@ -125,6 +148,9 @@ export default function App() {
         activePage={activePage}
         onNavigate={setActivePage}
         user={user}
+        farm={farm}
+        needsReviewCount={recordsMeta.needsReviewCount}
+        savedViews={recordsMeta.savedViews}
         onLogout={handleLogout}
         certificationStatus={profile.certificationStatus}
         onChangeStatus={() => setForceGate(true)}
@@ -140,7 +166,21 @@ export default function App() {
         {activePage === 'eligibility' && <EligibilityChecker onNavigate={setActivePage} onUpdateProfile={updateProfile} />}
         {activePage === 'tracker' && <ComplianceTracker userId={user?.id} certificationStatus={profile.certificationStatus} />}
         {activePage === 'osp' && <OSPGenerator profile={profile} onUpdateProfile={updateProfile} onNavigate={setActivePage} userId={user?.id} />}
-        {activePage === 'records' && <RecordGenerators profile={profile} />}
+        {activePage === 'recordGenerators' && <RecordGenerators profile={profile} />}
+        {parseRecordsRoute(activePage) && (
+          <RecordsPage
+            route={parseRecordsRoute(activePage)}
+            farm={farm}
+            role={recordsMeta.role}
+            userId={user?.id}
+            savedViews={recordsMeta.savedViews}
+            metaReady={recordsMeta.ready}
+            needsReviewCount={recordsMeta.needsReviewCount}
+            onNavigate={setActivePage}
+            onChanged={recordsMeta.refresh}
+            onRetryFarm={loadFarm}
+          />
+        )}
         {activePage === 'receipts' && <ReceiptManager userId={user?.id} />}
         {activePage === 'certifiers' && <CertifierDirectory />}
         {activePage === 'soilLabs' && <SoilLabDirectory />}

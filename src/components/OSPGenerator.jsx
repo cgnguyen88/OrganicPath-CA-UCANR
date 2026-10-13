@@ -1,3 +1,5 @@
+import { authedFetch } from '../lib/apiClient.js';
+import { renderOspInline } from '../utils/safeMarkdown.js';
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -46,7 +48,7 @@ function fmtSz(b) { return b < 1048576 ? `${(b / 1024).toFixed(1)} KB` : `${(b /
 // ─── AI helpers ───────────────────────────────────────────────────────────────
 
 async function streamClaude(messages, onChunk, system) {
-  const res = await fetch('/api/claude', {
+  const res = await authedFetch('/api/claude', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ messages, system, stream: true }),
@@ -70,7 +72,7 @@ async function streamClaude(messages, onChunk, system) {
 }
 
 async function callClaude(messages, system) {
-  const res = await fetch('/api/claude', {
+  const res = await authedFetch('/api/claude', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ messages, system, stream: false }),
@@ -755,19 +757,12 @@ function OSPRenderer({ text }) {
       {lines.map((line, i) => {
         if (/^##\s/.test(line)) return <h3 key={i} style={{ fontSize: 13, fontWeight: 700, color: 'var(--u-navy)', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 28, marginBottom: 10, paddingBottom: 8, borderBottom: '2px solid #e2e8f0' }}>{line.replace(/^##\s/, '')}</h3>;
         if (/^#\s/.test(line)) return <h2 key={i} style={{ fontFamily: 'Lora, serif', fontSize: 18, color: 'var(--u-navy)', marginTop: 32, marginBottom: 10 }}>{line.replace(/^#\s/, '')}</h2>;
-        if (/^[-*]\s/.test(line)) return <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 4, paddingLeft: 10 }}><span style={{ color: '#94a3b8' }}>•</span><span dangerouslySetInnerHTML={{ __html: fmtInlineHTML(line.replace(/^[-*]\s/, '')) }} /></div>;
+        if (/^[-*]\s/.test(line)) return <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 4, paddingLeft: 10 }}><span style={{ color: '#94a3b8' }}>•</span><span dangerouslySetInnerHTML={{ __html: renderOspInline(line.replace(/^[-*]\s/, '')) }} /></div>;
         if (line.trim() === '') return <div key={i} style={{ height: 7 }} />;
-        return <p key={i} style={{ margin: '0 0 5px' }} dangerouslySetInnerHTML={{ __html: fmtInlineHTML(line) }} />;
+        return <p key={i} style={{ margin: '0 0 5px' }} dangerouslySetInnerHTML={{ __html: renderOspInline(line) }} />;
       })}
     </div>
   );
-}
-
-function fmtInlineHTML(t) {
-  return t
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/\[NEEDS OPERATOR INPUT:(.*?)\]/g, '<span style="background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:4px;font-size:12px;font-weight:600">⚠ NEEDS INPUT:$1</span>');
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────

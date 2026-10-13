@@ -1,3 +1,4 @@
+import { authedFetch } from '../../lib/apiClient.js';
 import { useState } from 'react';
 import { Calendar as CalendarIcon, FileStack, Map, CheckSquare, Search, RefreshCw, Copy, CheckCheck } from 'lucide-react';
 
@@ -5,7 +6,7 @@ const JIMMY_SYSTEM = `You are Jimmy, a California organic certification inspecto
 
 async function streamClaude(prompt, onChunk, onError) {
   try {
-    const res = await fetch('/api/claude', {
+    const res = await authedFetch('/api/claude', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
