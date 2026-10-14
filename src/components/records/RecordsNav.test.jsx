@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { screen, cleanup, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithLang } from './testUtils.jsx';
@@ -14,12 +14,13 @@ const setup = (props = {}, lang = 'en') => {
   renderWithLang(<RecordsNav activePage="dashboard" onNavigate={onNavigate} needsReviewCount={0} savedViews={views} {...props} />, lang);
   return { user, onNavigate };
 };
+beforeEach(() => localStorage.clear());
 afterEach(cleanup);
 
 describe('RecordsNav', () => {
   it('shows the section, the overview, the review queue and the change history', () => {
     setup();
-    expect(screen.getByText('Farm Records')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Farm Records' })).toBeTruthy();
     for (const name of ['Records', 'Needs Review', 'Change History']) expect(screen.getByRole('button', { name: new RegExp(`^${name}`) }), name).toBeTruthy();
   });
 
@@ -46,7 +47,9 @@ describe('RecordsNav', () => {
   it('keeps the log list collapsed until opened, then lists every kind of log', async () => {
     const { user } = setup();
     expect(screen.queryByRole('button', { name: 'Seed Log' })).toBeNull();
+    expect(screen.getByRole('button', { name: /^Logs/ }).getAttribute('aria-expanded')).toBe('false');
     await user.click(screen.getByRole('button', { name: /^Logs/ }));
+    expect(screen.getByRole('button', { name: /^Logs/ }).getAttribute('aria-expanded')).toBe('true');
     for (const name of ['Activities', 'Purchases', 'Notes', 'Seed Log', 'Planting Log', 'Amendment Log', 'Harvest Log', 'Input List', 'Inventory']) {
       expect(screen.getByRole('button', { name }), name).toBeTruthy();
     }
@@ -74,9 +77,36 @@ describe('RecordsNav', () => {
     expect(screen.getByRole('button', { name: /^Records/ }).getAttribute('aria-current')).toBeNull();
   });
 
+  it('lets the whole section be collapsed, remembers it, and keeps it open on one of its own pages', async () => {
+    const { user } = setup();
+    await user.click(screen.getByRole('button', { name: 'Farm Records' }));
+    expect(screen.queryByRole('button', { name: /^Needs Review/ })).toBeNull();
+    cleanup();
+    setup();
+    expect(screen.queryByRole('button', { name: /^Needs Review/ })).toBeNull(); // still collapsed on the next visit
+    cleanup();
+    setup({ activePage: 'needsReview' });
+    expect(screen.getByRole('button', { name: /^Needs Review/ })).toBeTruthy(); // but open when you are on one of its pages
+  });
+
+  it('lets the saved views be collapsed separately, and keeps the open one visible', async () => {
+    const { user } = setup();
+    await user.click(screen.getByRole('button', { name: 'Saved Views' }));
+    expect(screen.queryByRole('button', { name: 'This season’s sprays' })).toBeNull();
+    expect(screen.getByRole('button', { name: /^Needs Review/ })).toBeTruthy(); // the rest of the section is unaffected
+    cleanup();
+    setup({ activePage: 'view:view-1' });
+    expect(screen.getByRole('button', { name: 'This season’s sprays' }).getAttribute('aria-current')).toBe('page');
+  });
+
+  it('shows no saved-views heading when nothing is pinned', () => {
+    setup({ savedViews: [] });
+    expect(screen.queryByRole('button', { name: 'Saved Views' })).toBeNull();
+  });
+
   it('is available in Spanish, with default views translated by their slug', () => {
     setup({}, 'es');
-    expect(screen.getByText('Registros de la Finca')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Registros de la Finca' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /^Por Revisar/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Compras sin listado OMRI' })).toBeTruthy();
   });
