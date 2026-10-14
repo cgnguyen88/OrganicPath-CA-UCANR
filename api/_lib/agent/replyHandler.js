@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { describeUpstreamError, guardRequest, redact, sendJson } from '../httpUtils.js';
 import { buildReplyPatch, farmToday, presentRecord } from './captureRows.js';
 import { applyReply } from './followup.js';
+import { readFieldNames } from './fieldNames.js';
 
 /** A reply only fills in a record that is still waiting for details. */
 const REPLYABLE_STATUSES = ['draft', 'needs_info'];
@@ -116,6 +117,7 @@ export function createReplyHandler({ config, verifyToken, getAnthropic, store, m
         allowedKeys: current.missing_fields ?? [],
         today: todayFn(),
         signal: controller.signal,
+        fieldNames: await readFieldNames(store.listFieldNames ? () => store.listFieldNames(token, { farmId: current.farm_id }) : undefined, logger),
       });
     } catch (err) {
       if (controller.signal.aborted) return;

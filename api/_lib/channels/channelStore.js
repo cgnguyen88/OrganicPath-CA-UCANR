@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { RECORD_COLUMNS } from '../agent/supabaseStore.js';
+import { MAX_FIELD_NAMES } from '../agent/fieldNames.js';
 
 const CAPTURE_KEY = /^[0-9a-f]{64}$/;
 const CHECK_VIOLATION = '23514';
@@ -117,6 +118,13 @@ export function createChannelStore(env = process.env, { createClientImpl = creat
       const { data, error } = await db().from('records').select(RECORD_COLUMNS).eq('farm_id', farmId).like('source_ref', `${captureHash}#%`).order('source_ref', { ascending: true });
       if (error) throw dbError(error);
       return data ?? [];
+    },
+
+    /** The names of the farm's active fields (the model is told them so it spells a field the way the farm does). */
+    async listFieldNames({ farmId }) {
+      const { data, error } = await db().from('fields').select('name').eq('farm_id', farmId).eq('is_active', true).order('name', { ascending: true }).limit(MAX_FIELD_NAMES + 1);
+      if (error) throw dbError(error);
+      return (data ?? []).map((row) => row.name);
     },
 
     insertRecords: (rows) => agentStore.insertRecords(rows),

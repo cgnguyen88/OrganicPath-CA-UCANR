@@ -1,7 +1,11 @@
 import { authedFetch } from '../../lib/apiClient.js';
-import { useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { Bell, ShieldCheck, AlertCircle, ExternalLink, RefreshCw, CheckCircle } from 'lucide-react';
-import { getReceipts } from '../../lib/db.js';
+import { materialsForPrompt } from '../../domain/records/materials.js';
+import { todayLocalIso } from '../../domain/records/seasons.js';
+import { useLanguage } from '../../i18n/LanguageContext.jsx';
+import { maintenanceText } from './text.js';
+import useFarmMaterials, { materialsSince } from './useFarmMaterials.js';
 
 const LIST_UPDATES = [
   { id: 1, date: '2026-03-12', substance: 'Peroxyacetic acid',   type: 'Amendment',     section: '§205.601', status: 'Allowed',  desc: 'Revised usage concentrations for irrigation systems.' },
@@ -9,31 +13,31 @@ const LIST_UPDATES = [
   { id: 3, date: '2026-01-15', substance: 'DL-Methionine',       type: 'Sunset Review', section: '§205.603', status: 'Warning',  desc: 'Sunset date approaching in 2027; re-evaluation ongoing.' },
 ];
 
-const RELEVANT_CATEGORIES = ['Fertilizer', 'Pesticide/Herbicide', 'Seed/Transplant', 'Soil Amendment', 'Cover Crop', 'Livestock Feed', 'Other Input'];
+/** The inputs Jimmy is asked about: the farm's own records first, then the OSP profile, and never made-up ones. */
+function inputListFor(materials, profile) {
+  if (materials.length > 0) return `The farm's own records ("not recorded" means the farm has not recorded it):\n${materialsForPrompt(materials)}`;
+  if (profile?.inputs) return `Operation-level inputs from OSP: ${profile.inputs}`;
+  return 'No specific inputs on file — provide a general analysis for a California crop operation.';
+}
 
-export default function NationalListReview({ userId, profile }) {
+export default function NationalListReview({ farm, profile }) {
+  const { lang: rawLang } = useLanguage();
+  const lang = rawLang === 'es' ? 'es' : 'en';
+  const tt = maintenanceText(lang);
+
+  const [today] = useState(() => todayLocalIso());
+  const { status, materials, reload } = useFarmMaterials(farm?.id, useMemo(() => materialsSince(today), [today]));
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState('');
   const [scanError, setScanError] = useState('');
-  const [receipts, setReceipts] = useState([]);
-
-  useEffect(() => {
-    if (!userId) return;
-    getReceipts(userId).then(data => {
-      setReceipts(data.filter(r => RELEVANT_CATEGORIES.includes(r.category)));
-    });
-  }, [userId]);
 
   const handleReScan = async () => {
+    if (status !== 'ready' || scanning) return;
     setScanning(true);
     setScanResult('');
     setScanError('');
 
-    const inputList = receipts.length > 0
-      ? receipts.map(r => `- ${r.product} (${r.category}, supplier: ${r.supplier || 'unknown'})`).join('\n')
-      : profile?.inputs
-        ? `Operation-level inputs from OSP: ${profile.inputs}`
-        : 'No specific inputs on file — provide a general analysis for a California crop operation.';
+    const inputList = inputListFor(materials, profile);
 
     const updatesText = LIST_UPDATES.map(u =>
       `${u.substance} (${u.section}, ${u.type}): ${u.desc}`
@@ -61,7 +65,8 @@ For each input, assess:
 
 End with a summary: total inputs reviewed, how many need attention, and the single most urgent action item.
 
-Be concise — one line per material is enough unless there's a specific concern.`,
+Use only the inputs listed above. Do not invent products, suppliers or dates; where something is not recorded, say so.
+Be concise — one line per material is enough unless there's a specific concern.${lang === 'es' ? '\n\nRespond entirely in Spanish.' : ''}`,
           }],
           mode: 'national_list_review',
           stream: false,
@@ -121,8 +126,17 @@ Be concise — one line per material is enough unless there's a specific concern
           </div>
           <h3 style={{ fontSize: 18, fontWeight: 700, color: '#4c1d95', marginBottom: 12 }}>OSP Impact Check</h3>
           <p style={{ fontSize: 14, color: '#5b21b6', lineHeight: 1.6, marginBottom: 20 }}>
-            Jimmy cross-references your stored inputs ({receipts.length > 0 ? `${receipts.length} material${receipts.length !== 1 ? 's' : ''} from Receipt Manager` : 'from your OSP profile'}) against these National List updates.
+            {tt.review.crossReference(materials.length > 0 ? tt.review.impactFromRecords(materials.length) : tt.review.impactFromProfile)}
           </p>
+
+          {status === 'error' && (
+            <div role="alert" style={{ background: '#fee2e2', padding: 12, borderRadius: 8, border: '1px solid #fecaca', marginBottom: 16, fontSize: 13, color: '#991b1b' }}>
+              <strong>{tt.loadErrorTitle}</strong>
+              <div style={{ marginTop: 8 }}>
+                <button type="button" onClick={reload} style={{ background: 'white', border: '1.5px solid #fecaca', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', color: '#991b1b' }}>{tt.retry}</button>
+              </div>
+            </div>
+          )}
 
           {!scanResult && !scanError && (
             <div style={{ background: 'white', padding: 16, borderRadius: 12, border: '1px solid #ddd6fe', marginBottom: 20 }}>
@@ -156,7 +170,7 @@ Be concise — one line per material is enough unless there's a specific concern
 
           <button
             onClick={handleReScan}
-            disabled={scanning}
+            disabled={scanning || status !== 'ready'}
             style={{
               marginTop: 'auto',
               width: '100%',

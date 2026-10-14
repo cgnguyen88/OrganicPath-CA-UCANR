@@ -572,3 +572,33 @@ describe('one message, one charge per model call', () => {
     expect(limits.chat.minuteLimiter.check).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('the farm’s fields', () => {
+  it('are told to the model when a photo or message is read, for the linked farm', async () => {
+    store.listFieldNames = vi.fn(async () => ['B2', 'North 40']);
+    await run(update({ text: 'sprayed neem on b2' }));
+    expect(store.listFieldNames).toHaveBeenCalledWith({ farmId: FARM });
+    expect(extract).toHaveBeenCalledWith(expect.objectContaining({ fieldNames: ['B2', 'North 40'] }));
+  });
+
+  it('are told to the model when an answer to a question is read', async () => {
+    store.listFieldNames = vi.fn(async () => ['B4']);
+    store.latestOpenRecord.mockResolvedValue(openRecord());
+    await run(update({ text: 'Bt, 1 oz/gal, caterpillars' }));
+    expect(reply).toHaveBeenCalledWith(expect.objectContaining({ fieldNames: ['B4'] }));
+    expect(store.listFieldNames).toHaveBeenCalledWith({ farmId: FARM });
+  });
+
+  it('are left out, and the record still filed, when the list cannot be read', async () => {
+    store.listFieldNames = vi.fn(async () => { throw new Error('db down'); });
+    await run(update({ text: 'sprayed neem on b2' }));
+    expect(extract.mock.calls[0][0].fieldNames).toEqual([]);
+    expect(store.insertRecords).toHaveBeenCalled();
+    expect(logger.warn).toHaveBeenCalled();
+  });
+
+  it('are simply not told when the store has no list', async () => {
+    await run(update({ text: 'sprayed neem on b2' }));
+    expect(extract.mock.calls[0][0].fieldNames).toEqual([]);
+  });
+});

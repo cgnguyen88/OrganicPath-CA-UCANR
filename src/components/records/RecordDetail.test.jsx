@@ -5,10 +5,12 @@ import userEvent from '@testing-library/user-event';
 import { renderWithLang } from './testUtils.jsx';
 
 vi.mock('../../lib/records.js', () => ({ listRevisions: vi.fn(), setRecordStatus: vi.fn(), updateRecord: vi.fn(), createRecord: vi.fn() }));
-vi.mock('../../lib/db.js', () => ({ getRecordFileUrl: vi.fn() }));
+vi.mock('../../lib/db.js', () => ({ getAttachmentUrl: vi.fn() }));
+vi.mock('../../lib/fields.js', () => ({ addFieldsByName: vi.fn() }));
 const db = await import('../../lib/db.js');
 const records = await import('../../lib/records.js');
 const { default: RecordDetail } = await import('./RecordDetail.jsx');
+const { FarmFieldsContext } = await import('./farmFields.js');
 
 const base = { id: 'r1', kind: 'activity', status: 'pending_review', record_date: '2026-10-01', source: 'telegram', confidence: 0.82, created_at: '2026-10-01T12:00:00Z', reviewed_at: null, created_by: 'crew-1', missing_fields: [], payload: { activity_type: 'spray', field: 'B4', product: 'Bt', rate: '1 oz/gal', target: 'caterpillars' } };
 
@@ -183,17 +185,17 @@ describe('RecordDetail: source files', () => {
   });
 
   it('opens a stored file through a freshly signed link', async () => {
-    db.getRecordFileUrl.mockResolvedValue('https://signed/1');
+    db.getAttachmentUrl.mockResolvedValue('https://signed/1');
     const open = vi.spyOn(window, 'open').mockImplementation(() => null);
     const { user } = setup(withFiles);
     expect(screen.getByText('Source file')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'View file 2' }));
-    expect(db.getRecordFileUrl).toHaveBeenCalledWith('farm-1/h/1.pdf');
+    expect(db.getAttachmentUrl).toHaveBeenCalledWith(expect.objectContaining({ path: 'farm-1/h/1.pdf' }));
     expect(open).toHaveBeenCalledWith('https://signed/1', '_blank', 'noopener,noreferrer');
   });
 
   it('says so when the link cannot be made, and opens nothing', async () => {
-    db.getRecordFileUrl.mockResolvedValue(null);
+    db.getAttachmentUrl.mockResolvedValue(null);
     const open = vi.spyOn(window, 'open').mockImplementation(() => null);
     const { user } = setup(withFiles);
     await user.click(screen.getByRole('button', { name: 'View file 1' }));
@@ -205,5 +207,51 @@ describe('RecordDetail: source files', () => {
     setup(withFiles, {}, 'es');
     expect(screen.getByText('Archivo de origen')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Ver archivo 1' })).toBeTruthy();
+  });
+});
+
+describe('RecordDetail: the farm’s field list', () => {
+  const withList = (fields, props = {}) => {
+    const user = userEvent.setup();
+    renderWithLang(
+      <FarmFieldsContext.Provider value={{ status: 'ready', fields, reload: () => {} }}>
+        <RecordDetail record={base} role="owner" userId="owner-1" farm={{ id: 'farm-1' }} onClose={() => {}} onChanged={() => {}} {...props} />
+      </FarmFieldsContext.Provider>,
+    );
+    return { user };
+  };
+  const list = (...names) => names.map((name) => ({ id: `id-${name}`, name, is_active: true }));
+
+  it('says the record’s field is not in the list, right under the field, when it is not', async () => {
+    withList(list('A1', 'C2'));
+    const row = screen.getByText('Field / block').closest('[data-testid="detail-row"]');
+    expect(within(row).getByText('“B4” is not in your field list.')).toBeTruthy();
+    expect(within(row).getByRole('button', { name: 'Add to field list' })).toBeTruthy();
+    await screen.findByText('Approved');
+  });
+
+  it('says nothing when the field is in the list, whatever its capital letters', async () => {
+    withList(list('b4'));
+    expect(screen.queryByText(/is not in your field list/)).toBeNull();
+    await screen.findByText('Approved');
+  });
+
+  it('says nothing for a farm that has no field list yet', async () => {
+    withList([]);
+    expect(screen.queryByText(/is not in your field list/)).toBeNull();
+    await screen.findByText('Approved');
+  });
+
+  it('does not offer crew the button', async () => {
+    withList(list('A1'), { role: 'crew' });
+    expect(screen.getByText('“B4” is not in your field list.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Add to field list' })).toBeNull();
+    await screen.findByText('Approved');
+  });
+
+  it('puts no hint on other fields, or on a record with no field', async () => {
+    withList(list('A1'), { record: { ...base, kind: 'purchase', payload: { product: 'Compost', supplier: 'Acme' } } });
+    expect(screen.queryByText(/is not in your field list/)).toBeNull();
+    await screen.findByText('Approved');
   });
 });

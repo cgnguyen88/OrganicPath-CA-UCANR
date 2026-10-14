@@ -1,16 +1,18 @@
 import { buildExtractionSystem } from './prompts.js';
 import { buildRecordTools, kindForToolName } from './tools.js';
 import { clampConfidence, sanitizeProposal } from './sanitize.js';
+import { fieldListLine } from './fieldNames.js';
 
 /** Never create more than this many records from a single message or photo. */
 export const MAX_PROPOSALS = 10;
 const FILE_ONLY_INSTRUCTION = 'Extract the farm records from the attached file.';
 
-function buildContent({ text, attachments }) {
+function buildContent({ text, attachments }, fieldNames) {
   const files = attachments ?? [];
   const words = typeof text === 'string' ? text.trim() : '';
   if (files.length === 0 && words === '') throw new Error('There is nothing to extract: send text or a file.');
-  return [...files, { type: 'text', text: words === '' ? FILE_ONLY_INSTRUCTION : words }];
+  const fieldLine = fieldListLine(fieldNames);
+  return [...(fieldLine ? [{ type: 'text', text: fieldLine }] : []), ...files, { type: 'text', text: words === '' ? FILE_ONLY_INSTRUCTION : words }];
 }
 
 const pickUsage = (usage) => ({ input_tokens: usage?.input_tokens ?? 0, output_tokens: usage?.output_tokens ?? 0 });
@@ -26,10 +28,12 @@ const pickUsage = (usage) => ({ input_tokens: usage?.input_tokens ?? 0, output_t
  *   input: { text?: string, attachments?: Array<object> },
  *   today: string,
  *   signal?: AbortSignal,
+ *   fieldNames?: string[],
  * }} args
+ *   `fieldNames` are the farm's field names; the model is told them (as data) so it spells a field the way the farm does.
  */
-export async function extractRecords({ anthropic, config, input, today, signal }) {
-  const content = buildContent(input);
+export async function extractRecords({ anthropic, config, input, today, signal, fieldNames }) {
+  const content = buildContent(input, fieldNames);
 
   // tool_choice is "auto": forced tool use is rejected by this model family, and a photo with no
   // farm record in it should be answered in words, not forced into a record.

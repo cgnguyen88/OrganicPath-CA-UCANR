@@ -9,10 +9,12 @@ vi.mock('../../lib/records.js', () => ({
   listRecords: vi.fn(), listSavedViewRecords: vi.fn(), listRevisions: vi.fn(), createRecord: vi.fn(), updateRecord: vi.fn(), setRecordStatus: vi.fn(),
 }));
 vi.mock('../../lib/reportData.js', () => ({ listRecordsForReport: vi.fn(), listSavedViewRecordsForReport: vi.fn() }));
+vi.mock('../../lib/fields.js', () => ({ listFields: vi.fn(), createField: vi.fn(), updateField: vi.fn(), setFieldActive: vi.fn(), deleteField: vi.fn(), addFieldsByName: vi.fn() }));
 vi.mock('../../lib/reportCsv.js', () => ({ downloadCsv: vi.fn() }));
 vi.mock('../../lib/reportDocx.js', () => ({ downloadReportDocx: vi.fn() }));
 const records = await import('../../lib/records.js');
 const reportData = await import('../../lib/reportData.js');
+const fieldsLib = await import('../../lib/fields.js');
 const { default: RecordsPage } = await import('./RecordsPage.jsx');
 
 const FARM = { id: 'farm-1', name: 'Sunny', farm_code: 'F-ABC234', season_start_month: 4, season_start_day: 1 };
@@ -30,6 +32,8 @@ const setup = (route, props = {}, lang = 'en') => {
 beforeEach(() => {
   Object.values(records).forEach((fn) => fn.mockReset());
   Object.values(reportData).forEach((fn) => fn.mockReset());
+  Object.values(fieldsLib).forEach((fn) => fn.mockReset());
+  fieldsLib.listFields.mockResolvedValue({ data: [{ id: 'f1', farm_id: 'farm-1', name: 'B2', area: null, area_unit: null, notes: null, is_active: true }], error: null });
   reportData.listRecordsForReport.mockResolvedValue({ data: { records: [purchase], truncated: false }, error: null });
   reportData.listSavedViewRecordsForReport.mockResolvedValue({ data: { records: [purchase], truncated: false }, error: null });
   records.listRecords.mockResolvedValue({ data: [purchase, pendingPurchase], error: null });
@@ -75,7 +79,59 @@ describe('RecordsPage: overview', () => {
   });
 });
 
+describe('RecordsPage: fields', () => {
+  it('opens the Fields page, with the farm’s fields', async () => {
+    setup({ type: 'fields' });
+    expect(screen.getByRole('heading', { name: 'Fields' })).toBeTruthy();
+    expect(await screen.findByRole('row', { name: /^B2\b/ })).toBeTruthy();
+    expect(fieldsLib.listFields).toHaveBeenCalledWith('farm-1');
+  });
 
+  it('lets an owner or manager add fields, and not crew', async () => {
+    setup({ type: 'fields' }, { role: 'manager' });
+    expect(await screen.findByRole('button', { name: 'Add field' })).toBeTruthy();
+    cleanup();
+    setup({ type: 'fields' }, { role: 'crew' });
+    await screen.findByRole('row', { name: /^B2\b/ });
+    expect(screen.queryByRole('button', { name: 'Add field' })).toBeNull();
+  });
+
+  it('reads the fields once for the whole records area, not once per screen', async () => {
+    const { user } = setup({ type: 'overview' });
+    await user.click(screen.getByRole('button', { name: /Harvest/ }));
+    await screen.findByRole('dialog', { name: 'Add harvest' });
+    expect(fieldsLib.listFields).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not read fields while there is no farm', () => {
+    setup({ type: 'fields' }, { farm: null });
+    expect(fieldsLib.listFields).not.toHaveBeenCalled();
+  });
+});
+
+describe('RecordsPage: stock', () => {
+  it('opens the Stock page, with the farm’s counts', async () => {
+    reportData.listRecordsForReport.mockResolvedValue({ data: { records: [{ id: 'c1', kind: 'inventory', status: 'approved', record_date: '2026-05-01', payload: { item: 'Kelp', unit: 'lb', quantity: 4, reorder_level: 5 } }], truncated: false }, error: null });
+    const { onNavigate, user } = setup({ type: 'stock' });
+    expect(screen.getByRole('heading', { name: 'Stock on hand' })).toBeTruthy();
+    expect(await screen.findByRole('row', { name: /^Kelp\b/ })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'See all counts' }));
+    expect(onNavigate).toHaveBeenCalledWith('log:inventory');
+  });
+
+  it('tells the rest of the app when a count is saved, so the review count updates', async () => {
+    reportData.listRecordsForReport.mockResolvedValue({ data: { records: [], truncated: false }, error: null });
+    records.createRecord.mockResolvedValue({ data: { id: 'new', status: 'pending_review' }, error: null });
+    const { user, onChanged } = setup({ type: 'stock' }, { role: 'crew' });
+    await user.click(await screen.findByRole('button', { name: 'Add item' }));
+    await user.type(screen.getByLabelText(/^Item/), 'Kelp');
+    await user.type(screen.getByLabelText(/^Quantity on hand/), '3');
+    await user.type(screen.getByLabelText(/^Unit/), 'lb');
+    await user.click(screen.getByRole('button', { name: 'Submit for review' }));
+    await screen.findByRole('status');
+    expect(onChanged).toHaveBeenCalled();
+  });
+});
 
 describe('RecordsPage: reports', () => {
   it('opens the Reports page', () => {

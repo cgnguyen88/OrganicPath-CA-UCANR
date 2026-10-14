@@ -35,6 +35,26 @@ function harness(results = {}) {
 
 const has = (calls, name, ...args) => calls.some(([n, ...a]) => n === name && args.every((v, i) => JSON.stringify(a[i]) === JSON.stringify(v)));
 
+describe('listFieldNames', () => {
+  it('reads the farm’s active field names as the caller (row-level security decides), by name, with a limit', async () => {
+    const h = harness({ fields: [{ data: [{ name: 'B2' }, { name: 'North 40' }], error: null }] });
+    const names = await createAgentStore(ENV, { createClientImpl: h.createClientImpl }).listFieldNames('tok', { farmId: 'f1' });
+    expect(names).toEqual(['B2', 'North 40']);
+    expect(h.queries[0]).toMatchObject({ table: 'fields', key: 'anon-key' });
+    expect(has(h.queries[0].calls, 'eq', 'farm_id', 'f1')).toBe(true);
+    expect(has(h.queries[0].calls, 'eq', 'is_active', true)).toBe(true);
+    expect(has(h.queries[0].calls, 'order', 'name')).toBe(true);
+    expect(has(h.queries[0].calls, 'limit', 101)).toBe(true);
+  });
+
+  it('gives no names when there are none, and fails with the database’s code when it cannot read', async () => {
+    const empty = harness({ fields: [{ data: null, error: null }] });
+    expect(await createAgentStore(ENV, { createClientImpl: empty.createClientImpl }).listFieldNames('tok', { farmId: 'f1' })).toEqual([]);
+    const broken = harness({ fields: [{ data: null, error: { code: '42P01', message: 'no such table' } }] });
+    await expect(createAgentStore(ENV, { createClientImpl: broken.createClientImpl }).listFieldNames('tok', { farmId: 'f1' })).rejects.toMatchObject({ code: '42P01' });
+  });
+});
+
 describe('client construction', () => {
   it('acts as the caller: anon key plus the caller’s bearer token, no session storage', async () => {
     const h = harness({ farm_members: [{ data: [{ farm_id: 'f1', role: 'crew' }], error: null }] });

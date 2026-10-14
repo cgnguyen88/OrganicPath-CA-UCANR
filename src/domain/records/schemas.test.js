@@ -49,6 +49,10 @@ describe('evaluateRecord: normalization', () => {
 describe('evaluateRecord: numbers are plain decimals', () => {
   const qty = (value) => evaluateRecord('harvest', { record_date: '2026-10-01', payload: { crop: 'a', field: 'b', quantity: value, unit: 'lb' } });
 
+  it.each([['1,000', 1000], ['12,345.5', 12345.5], ['1,5', 1.5]])('reads %j as %d, so a number the app wrote can be typed back in unchanged', (input, expected) => {
+    const result = evaluateRecord('harvest', { record_date: '2026-05-01', payload: { crop: 'x', field: 'y', quantity: input, unit: 'lb' } });
+    expect(result.value.payload.quantity).toBe(expected);
+  });
 
   it.each([['12', 12], ['12.5', 12.5], ['.5', 0.5], ['12,5', 12.5], [',5', 0.5], ['  7 ', 7], ['0', 0]])('accepts %j as %d (a comma works as a decimal point for Spanish keyboards)', (input, expected) => {
     expect(qty(input).value.payload.quantity).toBe(expected);

@@ -50,10 +50,17 @@ describe('record vocabulary', () => {
 
   it('keeps OMRI status values aligned across kinds', () => {
     expect(OMRI_STATUSES).toEqual(['listed', 'not_listed', 'unknown', 'not_applicable']);
-    for (const kind of ['purchase', 'input', 'amendment', 'activity']) {
+    for (const kind of ['purchase', 'input', 'amendment', 'activity', 'inventory']) {
       const field = KIND_FIELDS[kind].find((f) => f.key === 'omri_status');
       expect(field.options.map((o) => o.value), kind).toEqual(OMRI_STATUSES);
     }
+  });
+
+  it('lets a stock count say when to reorder, and whether the item is OMRI listed', () => {
+    const fields = Object.fromEntries(KIND_FIELDS.inventory.map((f) => [f.key, f]));
+    expect(fields.reorder_level).toMatchObject({ type: 'number', label: { en: 'Reorder level', es: 'Nivel de reposición' } });
+    expect(fields.omri_status.type).toBe('select');
+    expect(requiredFieldKeys('inventory', {})).toEqual(['item', 'quantity', 'unit']); // a count needs no reorder level or OMRI status
   });
 
   it('lists the sources the channels will use', () => {

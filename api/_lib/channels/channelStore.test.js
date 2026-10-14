@@ -168,6 +168,21 @@ describe('capture ports', () => {
     expect(queries).toHaveLength(0);
   });
 
+  it('lists the active field names of the linked farm only, by name', async () => {
+    const { store, queries } = build({ fields: [{ data: [{ name: 'B2' }, { name: 'North 40' }], error: null }] });
+    expect(await store.listFieldNames({ farmId: FARM })).toEqual(['B2', 'North 40']);
+    expect(queries[0].table).toBe('fields');
+    expect(has(queries[0].calls, 'eq', 'farm_id', FARM)).toBe(true);
+    expect(has(queries[0].calls, 'eq', 'is_active', true)).toBe(true);
+    expect(has(queries[0].calls, 'order', 'name')).toBe(true);
+    expect(has(queries[0].calls, 'limit', 101)).toBe(true);
+  });
+
+  it('gives no names for a farm with none, and fails when the database does', async () => {
+    expect(await build({ fields: [{ data: null, error: null }] }).store.listFieldNames({ farmId: FARM })).toEqual([]);
+    await expect(build({ fields: [{ data: null, error: { code: '42P01', message: 'no such table' } }] }).store.listFieldNames({ farmId: FARM })).rejects.toMatchObject({ code: '42P01' });
+  });
+
   it('hands saving and file storage to the agent store', async () => {
     const { store, agentStore } = build();
     await store.insertRecords([{ kind: 'note' }]);

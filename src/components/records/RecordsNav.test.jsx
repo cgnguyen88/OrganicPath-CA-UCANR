@@ -80,11 +80,45 @@ describe('RecordsNav', () => {
     expect(screen.getByRole('button', { name: /^Reports/ }).getAttribute('aria-current')).toBe('page');
   });
 
+  it('has a Fields page, with the other record pages, that is marked when active', async () => {
+    const { user, onNavigate } = setup();
+    await user.click(screen.getByRole('button', { name: /^Fields/ }));
+    expect(onNavigate).toHaveBeenCalledWith('recordFields');
+    cleanup();
+    setup({ activePage: 'recordFields' });
+    expect(screen.getByRole('button', { name: /^Fields/ }).getAttribute('aria-current')).toBe('page');
+  });
 
+  it('has a Stock page, with the other record pages, that is marked when active', async () => {
+    const { user, onNavigate } = setup();
+    await user.click(screen.getByRole('button', { name: /^Stock/ }));
+    expect(onNavigate).toHaveBeenCalledWith('recordStock');
+    cleanup();
+    setup({ activePage: 'recordStock' });
+    expect(screen.getByRole('button', { name: /^Stock/ }).getAttribute('aria-current')).toBe('page');
+  });
 
+  it('calls it Existencias in Spanish', () => {
+    setup({}, 'es');
+    expect(screen.getByRole('button', { name: /^Existencias/ })).toBeTruthy();
+  });
 
+  it('keeps Stock open inside Farm Records even when that section was collapsed, while on the Stock page', () => {
+    localStorage.setItem('orgpath_nav_group_records', 'false');
+    setup({ activePage: 'recordStock' });
+    expect(screen.getByRole('button', { name: /^Stock/ })).toBeTruthy();
+  });
 
+  it('calls it Campos in Spanish', () => {
+    setup({}, 'es');
+    expect(screen.getByRole('button', { name: /^Campos/ })).toBeTruthy();
+  });
 
+  it('keeps Fields open inside Farm Records even when that section was collapsed, while on the Fields page', () => {
+    localStorage.setItem('orgpath_nav_group_records', 'false');
+    setup({ activePage: 'recordFields' });
+    expect(screen.getByRole('button', { name: /^Fields/ })).toBeTruthy();
+  });
 
   it('calls it Informes in Spanish', () => {
     setup({}, 'es');

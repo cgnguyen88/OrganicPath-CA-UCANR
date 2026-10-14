@@ -1,316 +1,267 @@
+import { useMemo, useState } from 'react';
+import { AlertTriangle, CheckCheck, CheckCircle, Info, Layers, Plus, RefreshCw, Search, X } from 'lucide-react';
 import { authedFetch } from '../../lib/apiClient.js';
-import { useState, useEffect } from 'react';
-import { Layers, CheckCircle, AlertTriangle, RefreshCw, Search, Info, Plus, X, CheckCheck } from 'lucide-react';
-import { getReceipts } from '../../lib/db.js';
-import { saveToStorage, loadFromStorage } from '../../utils/storage.js';
+import { optionLabel } from '../../domain/records/kinds.js';
+import { materialsForPrompt, verificationDue } from '../../domain/records/materials.js';
+import { todayLocalIso } from '../../domain/records/seasons.js';
+import { logRoute } from '../../lib/recordsRoute.js';
+import { useLanguage } from '../../i18n/LanguageContext.jsx';
+import { loadFromStorage, saveToStorage } from '../../utils/storage.js';
+import { maintenanceText } from './text.js';
+import useFarmMaterials, { materialsSince } from './useFarmMaterials.js';
 
 const MANUAL_KEY = 'orgpath_manual_inputs';
+const DUE_COLORS = { overdue: '#e11d48', 'due-soon': '#d97706', ok: '#64748b', unknown: '#64748b' };
 
-const RELEVANT_CATEGORIES = new Set([
-  'Fertilizer', 'Pesticide/Herbicide', 'Seed/Transplant', 'Soil Amendment',
-  'Cover Crop', 'Livestock Feed', 'Other Input',
-  'Fertilizante', 'Pesticida/Herbicida', 'Semilla/Trasplante', 'Enmienda del Suelo',
-  'Cultivo de Cobertura', 'Alimento para Ganado', 'Otro Insumo',
-]);
+const outlined = { background: 'white', border: '1.5px solid #e2e8f0', padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--u-navy)' };
+const badge = (background, color) => ({ display: 'inline-flex', alignItems: 'center', gap: 4, background, color, padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700 });
 
-function staleness(dateStr) {
-  if (!dateStr) return 'unknown';
-  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
-  if (days > 365) return 'overdue';
-  if (days > 270) return 'due-soon';
-  return 'ok';
+/** A category by name: purchases and the Input List each have their own list of categories. */
+function categoryLabel(value, lang) {
+  if (!value) return '—';
+  const purchase = optionLabel('purchase', 'category', value, lang);
+  return purchase !== value ? purchase : optionLabel('input', 'category', value, lang);
 }
 
-export default function InputVerification({ userId }) {
-  const [receipts, setReceipts] = useState([]);
-  const [loadState, setLoadState] = useState('loading');
-  const [loadError, setLoadError] = useState('');
-  const [verifying, setVerifying] = useState(false);
-  const [verifyResult, setVerifyResult] = useState('');
-  const [verifyError, setVerifyError] = useState('');
+function OmriBadge({ material, tt }) {
+  if (material.statusConflict) return <span style={badge('#fff7ed', '#c2410c')}><AlertTriangle size={12} /> {tt.omri.conflict}</span>;
+  if (material.omriStatus === 'listed') return <span style={badge('#ecfdf5', '#10b981')}><CheckCircle size={12} /> {tt.omri.listed}</span>;
+  if (material.omriStatus === 'not_listed') return <span style={badge('#fff1f2', '#e11d48')}><AlertTriangle size={12} /> {tt.omri.not_listed}</span>;
+  if (material.omriStatus === 'not_applicable') return <span style={badge('#f8fafc', '#64748b')}>{tt.omri.not_applicable}</span>;
+  return <span style={badge('#f8fafc', '#94a3b8')}>{tt.omri.unknown}</span>;
+}
 
-  // manual input list — persisted to localStorage
-  const [manualInputs, setManualInputs] = useState(() => loadFromStorage(MANUAL_KEY, ''));
-  const [showManual, setShowManual] = useState(false);
-  const [savedConfirm, setSavedConfirm] = useState(false);
-
-  // auto-open manual panel when there are no receipts (once loaded)
-  useEffect(() => {
-    if (loadState === 'loaded' && receipts.length === 0) {
-      setShowManual(true);
-    }
-  }, [loadState, receipts.length]);
-
-  useEffect(() => {
-    if (!userId) { setLoadState('loaded'); return; }
-    getReceipts(userId)
-      .then(data => {
-        setReceipts(data.filter(r => RELEVANT_CATEGORIES.has(r.category)));
-        setLoadState('loaded');
-      })
-      .catch(err => {
-        console.error('InputVerification:', err);
-        setLoadError(err.message || 'Failed to load receipts');
-        setLoadState('error');
-      });
-  }, [userId]);
-
-  const handleSaveManual = () => {
-    saveToStorage(MANUAL_KEY, manualInputs);
-    setSavedConfirm(true);
-    setTimeout(() => setSavedConfirm(false), 2000);
-  };
-
-  const buildInputList = () => {
-    const fromReceipts = receipts.length > 0
-      ? receipts.map(r =>
-          `- ${r.product} (${r.category}, supplier: ${r.supplier || 'unknown'}, OMRI listed: ${r.omri_listed === true ? 'Yes' : r.omri_listed === false ? 'No' : 'Unknown'})`
-        ).join('\n')
-      : '';
-    const fromManual = manualInputs.trim();
-    const combined = [fromReceipts, fromManual].filter(Boolean).join('\n');
-    return combined || null;
-  };
-
-  const handleVerify = async () => {
-    const inputList = buildInputList();
-    if (!inputList) return;
-    setVerifying(true);
-    setVerifyResult('');
-    setVerifyError('');
-    try {
-      const res = await authedFetch('/api/claude', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [{
-            role: 'user',
-            content: `Review these inputs from a USDA-certified organic operation. For each material:
-1. Confirm if it is typically OMRI-listed or NOP-compliant
-2. Note any known restrictions or annotation requirements under §205.601–606
-3. Flag any re-verification steps needed for the upcoming certification year
-
-INPUTS:
-${inputList}
-
-Format: one line per input. Prefix each with ✓ CLEAR, ⚠ REVIEW, or ✗ ISSUE. End with a 2–3 line summary of the most urgent actions.`,
-          }],
-          mode: 'input_verification',
-          stream: false,
-        }),
-      });
-      if (!res.ok) throw new Error(await res.text().catch(() => `HTTP ${res.status}`));
-      const data = await res.json();
-      const text = data.content?.[0]?.text || data.choices?.[0]?.message?.content;
-      if (!text) throw new Error('Empty response from Claude');
-      setVerifyResult(text);
-    } catch (err) {
-      setVerifyError(err.message);
-    }
-    setVerifying(false);
-  };
-
-  const canVerify = receipts.length > 0 || manualInputs.trim().length > 0;
-
-  // ── Loading ──────────────────────────────────────────────────────────────────
-  if (loadState === 'loading') {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 60, color: '#64748b', gap: 12 }}>
-        <RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} />
-        Loading your materials…
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
-  }
-
-  // ── Error ────────────────────────────────────────────────────────────────────
-  if (loadState === 'error') {
-    return (
-      <div>
-        <div style={{ padding: 24, background: '#fee2e2', borderRadius: 12, border: '1px solid #fecaca', color: '#991b1b', marginBottom: 24 }}>
-          <h4 style={{ fontWeight: 700, marginBottom: 6 }}>Could not load receipts</h4>
-          <p style={{ fontSize: 13 }}>{loadError}</p>
-        </div>
-        {/* Still allow manual entry even on error */}
-        <ManualPanel
-          value={manualInputs}
-          onChange={setManualInputs}
-          onSave={handleSaveManual}
-          savedConfirm={savedConfirm}
-          onClose={null}
-        />
-      </div>
-    );
-  }
-
-  // ── Main ─────────────────────────────────────────────────────────────────────
+function MaterialsTable({ materials, lang, today, tt }) {
+  const columns = tt.verification.columns;
   return (
-    <div>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, gap: 16, flexWrap: 'wrap' }}>
-        <div>
-          <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--u-navy)', marginBottom: 4 }}>Annual Material Re-verification</h3>
-          <p style={{ fontSize: 13, color: '#64748b' }}>
-            {receipts.length > 0
-              ? `${receipts.length} material${receipts.length !== 1 ? 's' : ''} loaded from Receipt Manager.${manualInputs.trim() ? ' Manual entries also included.' : ''}`
-              : 'No receipts found for relevant categories. Enter inputs manually below or add them in Receipt Manager.'}
-          </p>
-        </div>
-        <button
-          onClick={handleVerify}
-          disabled={verifying || !canVerify}
-          style={{
-            background: verifying || !canVerify ? '#94a3b8' : '#f97316',
-            color: 'white', border: 'none', padding: '10px 18px', borderRadius: 8,
-            fontWeight: 600, cursor: verifying || !canVerify ? 'not-allowed' : 'pointer',
-            display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
-          }}
-        >
-          {verifying
-            ? <><RefreshCw size={16} style={{ animation: 'spin 1s linear infinite' }} /> Analyzing…</>
-            : <><Search size={16} /> Re-verify with Jimmy</>}
-        </button>
-      </div>
-
-      {/* Receipt table */}
-      {receipts.length > 0 && (
-        <div style={{ background: 'white', borderRadius: 12, border: '1.5px solid #e2e8f0', overflow: 'hidden', marginBottom: 24 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #e2e8f0' }}>
-                {['MATERIAL', 'SUPPLIER', 'CATEGORY', 'LAST PURCHASED', 'OMRI STATUS'].map(h => (
-                  <th key={h} style={{ padding: '12px 16px', fontSize: 11, fontWeight: 700, color: '#475569' }}>{h}</th>
-                ))}
+    <div style={{ background: 'white', borderRadius: 12, border: '1.5px solid #e2e8f0', overflow: 'hidden', marginBottom: 24 }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+        <thead>
+          <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #e2e8f0' }}>
+            {[columns.material, columns.supplier, columns.category, columns.lastUsed, columns.omri].map((heading) => (
+              <th key={heading} style={{ padding: '12px 16px', fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>{heading}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {materials.map((m) => {
+            const last = m.lastPurchased ?? m.lastDate;
+            const due = verificationDue(last, today);
+            return (
+              <tr key={m.key} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                <td style={{ padding: '14px 16px', fontSize: 13, fontWeight: 600, color: 'var(--u-navy)' }}>
+                  {m.name}
+                  {m.onInputList && <span style={{ display: 'block', fontSize: 10, color: '#64748b', fontWeight: 500, marginTop: 2 }}>{tt.verification.onInputList}</span>}
+                </td>
+                <td style={{ padding: '14px 16px', fontSize: 13, color: '#64748b' }}>{m.suppliers.join(', ') || '—'}</td>
+                <td style={{ padding: '14px 16px' }}>
+                  <span style={{ background: '#f1f5f9', color: '#475569', fontSize: 11, padding: '3px 8px', borderRadius: 20, fontWeight: 600 }}>{categoryLabel(m.category, lang)}</span>
+                </td>
+                <td style={{ padding: '14px 16px', fontSize: 13, color: DUE_COLORS[due] }}>
+                  {last ?? '—'}
+                  {due === 'overdue' && <span style={{ fontSize: 10, display: 'block', fontWeight: 600, marginTop: 2 }}>{tt.verification.verifyThisYear}</span>}
+                  {due === 'due-soon' && <span style={{ fontSize: 10, display: 'block', fontWeight: 600, marginTop: 2 }}>{tt.verification.reviewSoon}</span>}
+                </td>
+                <td style={{ padding: '14px 16px' }}><OmriBadge material={m} tt={tt} /></td>
               </tr>
-            </thead>
-            <tbody>
-              {receipts.map(r => {
-                const stale = staleness(r.date);
-                return (
-                  <tr key={r.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '14px 16px', fontSize: 13, fontWeight: 600, color: 'var(--u-navy)' }}>{r.product || '—'}</td>
-                    <td style={{ padding: '14px 16px', fontSize: 13, color: '#64748b' }}>{r.supplier || '—'}</td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <span style={{ background: '#f1f5f9', color: '#475569', fontSize: 11, padding: '3px 8px', borderRadius: 20, fontWeight: 600 }}>{r.category}</span>
-                    </td>
-                    <td style={{ padding: '14px 16px', fontSize: 13, color: stale === 'overdue' ? '#e11d48' : stale === 'due-soon' ? '#d97706' : '#64748b' }}>
-                      {r.date || '—'}
-                      {stale === 'overdue' && <span style={{ fontSize: 10, display: 'block', fontWeight: 600, marginTop: 2 }}>⚠ Verify this year</span>}
-                      {stale === 'due-soon' && <span style={{ fontSize: 10, display: 'block', fontWeight: 600, marginTop: 2 }}>Review soon</span>}
-                    </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      {r.omri_listed === true
-                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#ecfdf5', color: '#10b981', padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700 }}><CheckCircle size={12} /> OMRI Listed</span>
-                        : r.omri_listed === false
-                          ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fff1f2', color: '#e11d48', padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700 }}><AlertTriangle size={12} /> Review Required</span>
-                          : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#f8fafc', color: '#94a3b8', padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600 }}>Unknown</span>}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Empty state when no receipts */}
-      {receipts.length === 0 && (
-        <div style={{ background: '#f8fafc', border: '2px dashed #e2e8f0', borderRadius: 12, padding: 28, textAlign: 'center', marginBottom: 24 }}>
-          <Layers size={28} color="#cbd5e1" style={{ margin: '0 auto 10px' }} />
-          <h4 style={{ fontSize: 14, fontWeight: 600, color: '#475569', marginBottom: 6 }}>No receipts in relevant categories</h4>
-          <p style={{ fontSize: 13, color: '#94a3b8', maxWidth: 420, margin: '0 auto' }}>
-            Add fertilizers, pesticides, seeds, and soil amendments in Receipt Manager, or enter them manually below.
-          </p>
-        </div>
-      )}
-
-      {/* Manual panel toggle (only when there are receipts — otherwise it auto-opens) */}
-      {receipts.length > 0 && (
-        <button
-          onClick={() => setShowManual(v => !v)}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'white', border: '1.5px solid #e2e8f0', padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--u-navy)', marginBottom: 16 }}
-        >
-          {showManual ? <><X size={14} /> Hide manual entry</> : <><Plus size={14} /> Add inputs manually</>}
-        </button>
-      )}
-
-      {/* Manual entry panel */}
-      {showManual && (
-        <ManualPanel
-          value={manualInputs}
-          onChange={setManualInputs}
-          onSave={handleSaveManual}
-          savedConfirm={savedConfirm}
-          onClose={receipts.length > 0 ? () => setShowManual(false) : null}
-        />
-      )}
-
-      {/* Claude result */}
-      {verifyError && (
-        <div style={{ marginBottom: 20, background: '#fee2e2', border: '1px solid #fecaca', borderRadius: 10, padding: 16, fontSize: 13, color: '#991b1b' }}>
-          <strong>Error:</strong> {verifyError}
-        </div>
-      )}
-      {verifyResult && (
-        <div style={{ marginBottom: 24, background: '#f5f3ff', border: '1.5px solid #ddd6fe', borderRadius: 12, padding: 24 }}>
-          <h4 style={{ fontSize: 15, fontWeight: 700, color: '#4c1d95', marginBottom: 12 }}>Jimmy's Re-verification Analysis</h4>
-          <pre style={{ fontSize: 13, lineHeight: 1.7, whiteSpace: 'pre-wrap', color: '#1e293b', fontFamily: 'inherit' }}>{verifyResult}</pre>
-        </div>
-      )}
-
-      {/* §205.204 tip */}
-      <div style={{ padding: 20, background: '#fff7ed', borderRadius: 12, border: '1px solid #ffedd5' }}>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-          <Info size={18} color="#c2410c" style={{ flexShrink: 0, marginTop: 2 }} />
-          <div>
-            <h4 style={{ fontSize: 14, fontWeight: 700, color: '#9a3412', marginBottom: 4 }}>Seed & Planting Stock (§205.204)</h4>
-            <p style={{ fontSize: 13, color: '#9a3412', lineHeight: 1.5 }}>
-              Non-organic seeds require documentation that organic varieties were commercially unavailable. Add seed purchase records in Receipt Manager to track this here.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
 
-function ManualPanel({ value, onChange, onSave, savedConfirm, onClose }) {
+function ManualPanel({ value, onChange, onSave, saved, onClose, tt }) {
   return (
     <div style={{ marginBottom: 24, background: 'white', border: '1.5px solid #e2e8f0', borderRadius: 12, padding: 20 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--u-navy)' }}>Manual input list</label>
-        {onClose && (
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 4 }}>
-            <X size={16} />
-          </button>
-        )}
+        <label htmlFor="manual-inputs" style={{ fontSize: 13, fontWeight: 700, color: 'var(--u-navy)' }}>{tt.manual.title}</label>
+        {onClose && <button type="button" onClick={onClose} aria-label={tt.manual.close} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 4 }}><X size={16} /></button>}
       </div>
-      <p style={{ fontSize: 12, color: '#64748b', marginBottom: 10 }}>
-        One input per line — e.g. "PyGanic EC 5.0 (pesticide, MGK)" or "Feather Meal 12-0-0 (fertilizer, Nature Safe)"
-      </p>
+      <p style={{ fontSize: 12, color: '#64748b', marginBottom: 10 }}>{tt.manual.help}</p>
       <textarea
+        id="manual-inputs"
         value={value}
-        onChange={e => onChange(e.target.value)}
+        onChange={(event) => onChange(event.target.value)}
         rows={5}
-        placeholder={"PyGanic EC 5.0 (pesticide, MGK)\nFeather Meal 12-0-0 (fertilizer, Nature Safe)\nCopper Sulfate (fungicide, generic)"}
+        placeholder={tt.manual.placeholder}
         style={{ width: '100%', padding: 12, borderRadius: 8, border: '1.5px solid #e2e8f0', fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 12 }}
       />
       <button
+        type="button"
         onClick={onSave}
         disabled={!value.trim()}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          background: savedConfirm ? '#10b981' : value.trim() ? 'var(--u-navy)' : '#94a3b8',
-          color: 'white', border: 'none', padding: '8px 16px', borderRadius: 8,
-          fontSize: 13, fontWeight: 600, cursor: value.trim() ? 'pointer' : 'not-allowed',
-          transition: 'background 0.2s',
-        }}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: saved ? '#10b981' : value.trim() ? 'var(--u-navy)' : '#94a3b8', color: 'white', border: 'none', padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: value.trim() ? 'pointer' : 'not-allowed' }}
       >
-        {savedConfirm ? <><CheckCheck size={14} /> Saved</> : <>Save list</>}
+        {saved ? <><CheckCheck size={14} /> {tt.manual.saved}</> : tt.manual.save}
       </button>
-      <span style={{ fontSize: 12, color: '#94a3b8', marginLeft: 10 }}>Saved inputs persist across sessions</span>
+      <span style={{ fontSize: 12, color: '#94a3b8', marginLeft: 10 }}>{tt.manual.persists}</span>
+    </div>
+  );
+}
+
+/** What Jimmy is asked: the farm's own records, and nothing to be made up where they are silent. */
+function verificationPrompt({ materials, manual, lang }) {
+  const sections = [
+    materials.length > 0 ? `INPUTS FROM THE FARM'S OWN RECORDS ("not recorded" means the farm has not recorded it):\n${materialsForPrompt(materials)}` : '',
+    manual.trim() ? `INPUTS TYPED IN BY THE FARM (no other details known):\n${manual.trim()}` : '',
+  ].filter(Boolean);
+  return `Review these inputs from a USDA-certified organic operation. For each material:
+1. Confirm if it is typically OMRI-listed or NOP-compliant
+2. Note any known restrictions or annotation requirements under §205.601–606
+3. Flag any re-verification steps needed for the upcoming certification year
+
+${sections.join('\n\n')}
+
+Use only the information listed above. Do not invent suppliers, dates, products or listing numbers; where something is not recorded, say so.
+
+Format: one line per input. Prefix each with ✓ CLEAR, ⚠ REVIEW, or ✗ ISSUE. End with a 2–3 line summary of the most urgent actions.${lang === 'es' ? '\n\nRespond entirely in Spanish.' : ''}`;
+}
+
+/** The yearly check of a certified farm's materials, worked out from its Farm Records. */
+export default function InputVerification({ farm, onNavigate }) {
+  const { lang: rawLang } = useLanguage();
+  const lang = rawLang === 'es' ? 'es' : 'en';
+  const tt = maintenanceText(lang);
+
+  const [today] = useState(() => todayLocalIso());
+  const { status, materials, truncated, reload } = useFarmMaterials(farm?.id, useMemo(() => materialsSince(today), [today]));
+
+  const [manual, setManual] = useState(() => loadFromStorage(MANUAL_KEY, ''));
+  const [manualOpen, setManualOpen] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [result, setResult] = useState('');
+  const [problem, setProblem] = useState('');
+
+  const showManual = manualOpen || (status !== 'loading' && materials.length === 0);
+  const canVerify = materials.length > 0 || manual.trim().length > 0;
+
+  const saveManual = () => {
+    saveToStorage(MANUAL_KEY, manual);
+    setJustSaved(true);
+    setTimeout(() => setJustSaved(false), 2000);
+  };
+
+  const verify = async () => {
+    if (!canVerify || verifying) return;
+    setVerifying(true);
+    setResult('');
+    setProblem('');
+    try {
+      const response = await authedFetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [{ role: 'user', content: verificationPrompt({ materials, manual, lang }) }], mode: 'input_verification', stream: false }),
+      });
+      if (!response.ok) throw new Error(await response.text().catch(() => `HTTP ${response.status}`));
+      const data = await response.json();
+      const text = data.content?.[0]?.text || data.choices?.[0]?.message?.content;
+      if (!text) throw new Error('Empty response');
+      setResult(text);
+    } catch (error) {
+      setProblem(error.message);
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  if (status === 'loading') {
+    return (
+      <div role="status" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 60, color: '#64748b', gap: 12 }}>
+        <RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} />
+        {tt.loading}
+        <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
+      </div>
+    );
+  }
+
+  const manualPanel = (
+    <ManualPanel value={manual} onChange={setManual} onSave={saveManual} saved={justSaved} tt={tt} onClose={materials.length > 0 ? () => setManualOpen(false) : null} />
+  );
+
+  if (status === 'error') {
+    return (
+      <div>
+        <div role="alert" style={{ padding: 24, background: '#fee2e2', borderRadius: 12, border: '1px solid #fecaca', color: '#991b1b', marginBottom: 24 }}>
+          <h4 style={{ fontWeight: 700, marginBottom: 6 }}>{tt.loadErrorTitle}</h4>
+          <p style={{ fontSize: 13, marginBottom: 12 }}>{tt.loadErrorBody}</p>
+          <button type="button" onClick={reload} style={outlined}>{tt.retry}</button>
+        </div>
+        {manualPanel}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, gap: 16, flexWrap: 'wrap' }}>
+        <div>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--u-navy)', marginBottom: 4 }}>{tt.verification.title}</h3>
+          <p style={{ fontSize: 13, color: '#64748b' }}>
+            {materials.length > 0 ? tt.verification.fromRecords(materials.length) : tt.verification.noMaterials}
+            {manual.trim() && materials.length > 0 ? ` ${tt.verification.manualIncluded}` : ''}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={verify}
+          disabled={verifying || !canVerify}
+          style={{ background: verifying || !canVerify ? '#94a3b8' : '#f97316', color: 'white', border: 'none', padding: '10px 18px', borderRadius: 8, fontWeight: 600, cursor: verifying || !canVerify ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}
+        >
+          {verifying ? <><RefreshCw size={16} style={{ animation: 'spin 1s linear infinite' }} /> {tt.verification.analyzing}</> : <><Search size={16} /> {tt.verification.verify}</>}
+        </button>
+      </div>
+
+      {truncated && <div role="alert" style={{ padding: '10px 14px', borderRadius: 8, background: '#fffbeb', color: '#92400e', fontSize: 13, marginBottom: 16 }}>{tt.truncated}</div>}
+
+      {materials.length > 0 ? (
+        <MaterialsTable materials={materials} lang={lang} today={today} tt={tt} />
+      ) : (
+        <div style={{ background: '#f8fafc', border: '2px dashed #e2e8f0', borderRadius: 12, padding: 28, textAlign: 'center', marginBottom: 24 }}>
+          <Layers size={28} color="#cbd5e1" style={{ margin: '0 auto 10px' }} />
+          <h4 style={{ fontSize: 14, fontWeight: 600, color: '#475569', marginBottom: 6 }}>{tt.verification.emptyTitle}</h4>
+          <p style={{ fontSize: 13, color: '#94a3b8', maxWidth: 440, margin: '0 auto 14px' }}>{tt.verification.emptyBody}</p>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button type="button" onClick={() => onNavigate(logRoute('purchase'))} style={outlined}>{tt.openPurchases}</button>
+            <button type="button" onClick={() => onNavigate(logRoute('input'))} style={outlined}>{tt.openInputs}</button>
+          </div>
+        </div>
+      )}
+
+      {materials.length > 0 && (
+        <button type="button" onClick={() => setManualOpen((open) => !open)} style={{ ...outlined, display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 16 }}>
+          {manualOpen ? <><X size={14} /> {tt.verification.hideManual}</> : <><Plus size={14} /> {tt.verification.addManual}</>}
+        </button>
+      )}
+      {showManual && manualPanel}
+
+      {problem && (
+        <div style={{ marginBottom: 20, background: '#fee2e2', border: '1px solid #fecaca', borderRadius: 10, padding: 16, fontSize: 13, color: '#991b1b' }}>
+          <strong>{tt.verification.error}</strong> {problem}
+        </div>
+      )}
+      {result && (
+        <div style={{ marginBottom: 24, background: '#f5f3ff', border: '1.5px solid #ddd6fe', borderRadius: 12, padding: 24 }}>
+          <h4 style={{ fontSize: 15, fontWeight: 700, color: '#4c1d95', marginBottom: 12 }}>{tt.verification.resultTitle}</h4>
+          <pre style={{ fontSize: 13, lineHeight: 1.7, whiteSpace: 'pre-wrap', color: '#1e293b', fontFamily: 'inherit' }}>{result}</pre>
+        </div>
+      )}
+      <p style={{ fontSize: 12, color: '#64748b', marginBottom: 16 }}>{tt.verification.caution}</p>
+
+      <div style={{ padding: 20, background: '#fff7ed', borderRadius: 12, border: '1px solid #ffedd5' }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <Info size={18} color="#c2410c" style={{ flexShrink: 0, marginTop: 2 }} />
+          <div>
+            <h4 style={{ fontSize: 14, fontWeight: 700, color: '#9a3412', marginBottom: 4 }}>{tt.verification.seedTitle}</h4>
+            <p style={{ fontSize: 13, color: '#9a3412', lineHeight: 1.5, marginBottom: 10 }}>{tt.verification.seedBody}</p>
+            <button type="button" onClick={() => onNavigate(logRoute('seed'))} style={outlined}>{tt.verification.openSeed}</button>
+          </div>
+        </div>
+      </div>
+
+      <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
     </div>
   );
 }

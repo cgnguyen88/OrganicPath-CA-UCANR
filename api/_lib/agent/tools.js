@@ -32,7 +32,7 @@ export const KIND_GUIDANCE = Object.freeze({
   amendment: 'Fertilizer, compost, soil amendment or similar material APPLIED to a field: material, field, rate, method.',
   harvest: 'A crop harvested: crop, field, quantity and unit, lot number, destination.',
   input: 'A product kept on hand as an input (fertilizer, pest control, seed treatment, cleaner), described by its label: manufacturer, active ingredients, OMRI listing.',
-  inventory: 'A count of something currently in stock: item, quantity, unit, location.',
+  inventory: 'A count of something currently in stock: item, quantity, unit, location. Add a reorder level only if it is stated, and an OMRI status only if an OMRI seal or listing is visible.',
 });
 
 function fieldSchema(field) {

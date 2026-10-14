@@ -6,6 +6,7 @@ import { checkRateLimits, describeUpstreamError, redact } from '../httpUtils.js'
 import { buildReplyPatch, farmToday, presentRecord } from '../agent/captureRows.js';
 import { PipelineError, runCapture } from '../agent/capturePipeline.js';
 import { extractRecords } from '../agent/extract.js';
+import { readFieldNames } from '../agent/fieldNames.js';
 import { applyReply } from '../agent/followup.js';
 import { channelText } from './channelText.js';
 import { TelegramApiError } from './telegramApi.js';
@@ -62,6 +63,9 @@ const languageOf = (code) => (typeof code === 'string' && code.toLowerCase().sta
  */
 export function createChannelHandler({ config, store, telegram, getAnthropic, extract = extractRecords, reply = applyReply, limiters, logger, today, now = Date.now }) {
   const todayFn = today ?? (() => farmToday(config.agent.timeZone));
+
+  /** The linked farm's field names, to help the model spell a field the way the farm does (none if they cannot be read). */
+  const fieldNamesOf = (farmId) => readFieldNames(store.listFieldNames ? () => store.listFieldNames({ farmId }) : undefined, logger);
 
   async function say(chatId, text, { recordId } = {}) {
     try {
@@ -188,6 +192,7 @@ export function createChannelHandler({ config, store, telegram, getAnthropic, ex
       anthropic, config,
       draft: { kind: target.kind, record_date: target.record_date, payload: target.payload },
       replyText: update.text, today: day, allowedKeys: target.missing_fields ?? [],
+      fieldNames: await fieldNamesOf(identity.farmId),
     });
 
     if (result.applied.length === 0) {
@@ -253,6 +258,7 @@ export function createChannelHandler({ config, store, telegram, getAnthropic, ex
           findCapture: (captureHash) => store.findCapture({ farmId, captureHash }),
           uploadAttachments: ({ captureHash, attachments: files }) => store.uploadAttachments({ farmId, captureHash, attachments: files }),
           insertRecords: (rows) => store.insertRecords(rows),
+          listFieldNames: store.listFieldNames ? () => store.listFieldNames({ farmId }) : undefined,
         },
         extract, anthropic, config, userId, farmId, text: update.text, attachments, day, source: PROVIDER, logger,
       });

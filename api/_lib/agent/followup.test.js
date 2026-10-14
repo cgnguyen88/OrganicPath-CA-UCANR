@@ -130,6 +130,20 @@ describe('applyReply', () => {
     expect(params.tool_choice).toEqual({ type: 'auto' });
   });
 
+  it('tells the model the farm’s field names, as data, between the record and the reply', async () => {
+    const c = client([]);
+    await applyReply({ anthropic: c.anthropic, config, draft, replyText: 'en el b2', today: TODAY, lang: 'en', fieldNames: ['B2', 'North 40'] });
+    const text = c.create.mock.calls[0][0].messages[0].content;
+    expect(text.indexOf('"field":"B7"')).toBeLessThan(text.indexOf('Farm fields (data): ["B2","North 40"]'));
+    expect(text.indexOf('Farm fields (data)')).toBeLessThan(text.indexOf('en el b2'));
+  });
+
+  it('adds no field line when the farm has no fields', async () => {
+    const c = client([]);
+    await applyReply({ anthropic: c.anthropic, config, draft, replyText: 'Bt', today: TODAY, lang: 'en', fieldNames: [] });
+    expect(c.create.mock.calls[0][0].messages[0].content).not.toContain('Farm fields');
+  });
+
   it('refuses an empty reply without calling the model', async () => {
     const c = client([]);
     await expect(reply(c, '   ')).rejects.toThrow(/reply/i);

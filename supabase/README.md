@@ -16,6 +16,8 @@ Apply in filename order. They are idempotent (safe to re-run) and are covered by
 | `20261012000007_regulation_chunks.sql` | **Phase 2.** `regulation_chunks` (7 CFR Part 205, paragraph-sized, with citations) and `search_regulations()` full-text search (all words first, any word as a fallback). Empty until `npm run ingest:regulations -- --file part205.xml --date YYYY-MM-DD --load` is run with the service-role key. Signed-in users can read it; nobody can write it through the client API. |
 | `20261012000008_rate_limits.sql` | **Phase 2.** `rate_limit_hits` and `take_rate_token()`: rate limits shared by every serverless instance (per user, plus a global daily cap), usable only by the server role. Without it, or if the database is unreachable, limits fall back to per-instance counting. `purge_rate_limit_hits()` clears old rows; run it now and then. |
 | `20261012000009_channels.sql` | **Phase 3.** Chat channels (Telegram): one-time link codes (`create_channel_link_code`, only a hash is stored) redeemed into a *pending* link that the Telegram user must confirm after seeing the farm name and a masked owner email; linked accounts (`channel_identities`; a connected chat can never be taken over); handled-update ids (retries run once); message-to-record links; and `channel_update_record` (lets a reply fill the author's own open record, checked against author, farm, membership, status and version in SQL, with the history naming them). The tables clear their own old rows. Server-only except making a link code and unlinking your own account. Also makes the record history name the actor for changes made on someone's behalf (`app.actor`). |
+| `20261012000010_receipts_farm_read.sql` | Lets the people on a farm open the photos of that farm's receipts: one read policy on the `receipts` bucket, pinned to that bucket (no OR/NOT), that goes by the receipt row's `file_path` and `farm_id`, so a person in two farms never shares a photo with the wrong one. Uploads and deletes stay limited to your own folder, and a file no receipt names stays private to its uploader. If migration 3 is ever re-run it drops this policy: run this one again afterwards. |
+| `20261012000011_fields.sql` | **Fields.** The named places a farm grows things. Names are stored tidied and are unique per farm ignoring capital letters, spacing of any kind and invisible characters (`field_key()`, the same comparison the app makes), at most 500 per farm. **While any record uses a field (any status) its name cannot change and it cannot be deleted** (archive instead), enforced in the database. Owners/managers write, every member reads. Registers the field names found in each farm's *approved* records, once. |
 
 ## Before applying to a real project
 
@@ -50,11 +52,16 @@ Apply in filename order. They are idempotent (safe to re-run) and are covered by
 * **Incomplete records** can be drafts or "needs info" but cannot enter review or approval (enforced in the database).
 * **Saved views** are stored as a small declarative filter (never SQL) and validated before they run.
 
+## Fields and stock
+
+* **Fields** (`fields` table, migration 11). Records still keep a field as plain text (`payload.field`); the registry gives each farm one list of names to pick from. The match is by name, ignoring capital letters, so there is no foreign key to break: while any record uses a name, the database refuses to rename or delete that field (archive it instead). Fields are registered in the app (Farm Records → Fields), and the names records already use can be added in one click. The Claude capture agent is told the farm's active field names (as data in the user message, never in a system prompt) so it spells a field the way the farm does; if the list cannot be read the capture goes on without it.
+* **Stock** needs no table: an `inventory` record is a dated count, so the stock now is each item's latest approved count. `reorder_level` and `omri_status` are ordinary fields of an inventory record and carry forward to later counts that do not repeat them.
+
 ## Known gaps (planned)
 
 * No invite/accept flow yet, so a farm has exactly one member (its owner). Until it exists, "the user's farm" is their oldest membership; add an explicit `active_farm_id` with invites.
 * An owner can be the last member removed, leaving an ownerless farm.
 * Receipts cannot be edited (no UPDATE policy); revision history arrives with the records model.
 * Storage paths are `<user_id>/…`; they move to `<farm_id>/…` when teams ship.
-* The Receipt Manager page and its `receipts` table remain as an input channel (bridged into records). They are replaced by document import in a later phase.
+* The Receipt Manager page has been retired: purchases are added in **Purchases** (by hand, or from a photo through the capture panel). The `receipts` table, its bridge triggers (migration 5) and the `receipts` bucket stay, so old receipts and their photos remain in the farm's records and can still be opened; the app no longer writes new receipts.
 * Records have no attachment upload UI yet (the `attachments` column is ready for the agent and the import).

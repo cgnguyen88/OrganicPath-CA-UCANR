@@ -3,6 +3,7 @@ import { evaluateRecord } from '../../../src/domain/records/schemas.js';
 import { buildReplySystem } from './prompts.js';
 import { buildRecordTools, toolNameForKind } from './tools.js';
 import { isObject, withoutBlank } from './sanitize.js';
+import { fieldListLine } from './fieldNames.js';
 
 /** Ask for at most this many details per message; the rest follow in the next round. */
 export const MAX_QUESTIONS = 3;
@@ -78,17 +79,19 @@ export function questionsFor(kind, missing, lang) {
  *   today: string,
  *   signal?: AbortSignal,
  *   allowedKeys?: string[],
+ *   fieldNames?: string[],
  * }} args
  *   `allowedKeys` (payload keys, and/or 'record_date') limits what a reply may change; anything
  *   else the model returns is ignored and reported in `rejected`. Omit it to allow every field.
  */
-export async function applyReply({ anthropic, config, draft, replyText, today, signal, allowedKeys }) {
+export async function applyReply({ anthropic, config, draft, replyText, today, signal, allowedKeys, fieldNames }) {
   const reply = typeof replyText === 'string' ? replyText.trim() : '';
   if (reply === '') throw new Error('A reply is required.');
 
   const { kind } = draft;
   const tool = buildRecordTools({ strict: config.agent.strictTools }).find((t) => t.name === toolNameForKind(kind));
   const current = JSON.stringify({ kind, record_date: draft.record_date ?? null, payload: draft.payload ?? {} });
+  const fieldLine = fieldListLine(fieldNames);
 
   const response = await anthropic.messages.create(
     {
@@ -98,7 +101,7 @@ export async function applyReply({ anthropic, config, draft, replyText, today, s
       tools: [tool],
       tool_choice: { type: 'auto' },
       output_config: { effort: config.agent.effort },
-      messages: [{ role: 'user', content: `Current record (JSON):\n${current}\n\nWorker's reply:\n${reply}` }],
+      messages: [{ role: 'user', content: `Current record (JSON):\n${current}\n\n${fieldLine ? `${fieldLine}\n\n` : ''}Worker's reply:\n${reply}` }],
     },
     { timeout: config.agent.requestTimeoutMs, ...(signal ? { signal } : {}) },
   );

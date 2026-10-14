@@ -58,9 +58,21 @@ describe('Sidebar: structure', () => {
   it('lists every tool under a Compliance Tools heading', () => {
     setup();
     expect(screen.getByRole('button', { name: 'Compliance Tools' })).toBeTruthy();
-    for (const name of ['Eligibility Check', 'Record Generators', 'Receipt Manager', 'Certifier Directory', 'Soil Lab Directory', 'OMRI Materials Guide', 'Food Safety Guide', 'Federal Organic Code', 'State Registration', 'OCCSP Reimbursement']) {
+    for (const name of ['Eligibility Check', 'Draft Documents', 'Certifier Directory', 'Soil Lab Directory', 'OMRI Materials Guide', 'Food Safety Guide', 'Federal Organic Code', 'State Registration', 'OCCSP Reimbursement']) {
       expect(screen.getByRole('button', { name }), name).toBeTruthy();
     }
+  });
+
+  it('no longer has the Receipt Manager or Record Generators, whose work now lives in Purchases and Draft Documents', () => {
+    setup();
+    expect(screen.queryByRole('button', { name: 'Receipt Manager' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Record Generators' })).toBeNull();
+  });
+
+  it('calls the documents page “Borradores de Documentos” in Spanish', () => {
+    setup({}, 'es');
+    expect(screen.getByRole('button', { name: 'Borradores de Documentos' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Gestor de Recibos' })).toBeNull();
   });
 
   it('shows the Farm Records section only for someone who has a farm', () => {
@@ -82,21 +94,21 @@ describe('Sidebar: navigating', () => {
     const { user, onNavigate } = setup({ activePage: 'osp' });
     expect(screen.getByRole('button', { name: 'OSP Generator' }).getAttribute('aria-current')).toBe('page');
     expect(screen.getByRole('button', { name: 'Dashboard' }).getAttribute('aria-current')).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Receipt Manager' }));
+    await user.click(screen.getByRole('button', { name: 'Draft Documents' }));
     await user.click(screen.getByRole('button', { name: 'Compliance Tracker' }));
-    expect(onNavigate.mock.calls.map((c) => c[0])).toEqual(['receipts', 'tracker']);
+    expect(onNavigate.mock.calls.map((c) => c[0])).toEqual(['recordGenerators', 'tracker']);
   });
 
   it('collapses the tools, remembers it, and reopens them when you are on one of their pages', async () => {
     const { user } = setup();
     await user.click(screen.getByRole('button', { name: 'Compliance Tools' }));
-    expect(screen.queryByRole('button', { name: 'Receipt Manager' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Draft Documents' })).toBeNull();
     cleanup();
     setup();
-    expect(screen.queryByRole('button', { name: 'Receipt Manager' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Draft Documents' })).toBeNull();
     cleanup();
-    setup({ activePage: 'receipts' });
-    expect(screen.getByRole('button', { name: 'Receipt Manager' }).getAttribute('aria-current')).toBe('page');
+    setup({ activePage: 'recordGenerators' });
+    expect(screen.getByRole('button', { name: 'Draft Documents' }).getAttribute('aria-current')).toBe('page');
   });
 });
 

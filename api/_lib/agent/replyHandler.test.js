@@ -235,3 +235,22 @@ describe('reply handler — upstream failures', () => {
     expect(store.updateRecord).not.toHaveBeenCalled();
   });
 });
+
+describe('reply handler — the farm’s fields', () => {
+  it('tells the model the record’s farm’s field names, read as the caller', async () => {
+    store.listFieldNames = vi.fn(async () => ['B2', 'North 40']);
+    const res = await call(build(), { record_id: RECORD_ID, text: 'en el b2' });
+    expect(res.statusCode).toBe(200);
+    expect(store.listFieldNames).toHaveBeenCalledWith('good-token', { farmId: FARM_ID });
+    expect(reply).toHaveBeenCalledWith(expect.objectContaining({ fieldNames: ['B2', 'North 40'] }));
+  });
+
+  it('goes on without names when the list cannot be read, or the store has none', async () => {
+    store.listFieldNames = vi.fn(async () => { throw new Error('db down'); });
+    expect((await call(build(), { record_id: RECORD_ID, text: 'x' })).statusCode).toBe(200);
+    expect(reply.mock.calls[0][0].fieldNames).toEqual([]);
+    delete store.listFieldNames;
+    expect((await call(build(), { record_id: RECORD_ID, text: 'x' })).statusCode).toBe(200);
+    expect(reply.mock.calls[1][0].fieldNames).toEqual([]);
+  });
+});

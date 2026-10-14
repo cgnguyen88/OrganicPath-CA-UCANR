@@ -34,6 +34,13 @@ describe('buildSystemForMode', () => {
     expect(buildSystemForMode('record_generator', { lang: 'es' })).toBe(buildSystemForMode('record_generator', { lang: 'en' }));
   });
 
+  it('tells the record generator never to invent a detail, and to mark what is missing', () => {
+    const prompt = buildSystemForMode('record_generator', { lang: 'en' });
+    expect(prompt).toMatch(/never invent/i);
+    expect(prompt).toMatch(/Not recorded/);
+    expect(prompt).not.toMatch(/Include specific dates, quantities, and measurable details/);
+  });
+
   it('puts the language into the OSP prompts', () => {
     expect(buildSystemForMode('osp_generate', { lang: 'es' })).toMatch(/Respond in Spanish\.$/);
     expect(buildSystemForMode('osp_generate', { lang: 'en' })).toMatch(/Respond in English\.$/);

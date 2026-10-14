@@ -10,7 +10,6 @@ import ComplianceTracker from './components/ComplianceTracker.jsx';
 import OSPGenerator from './components/OSPGenerator.jsx';
 import ExpandableChat from './components/ExpandableChat.jsx';
 import RecordGenerators from './components/RecordGenerators.jsx';
-import ReceiptManager from './components/ReceiptManager.jsx';
 import CertifierDirectory from './components/CertifierDirectory.jsx';
 import SoilLabDirectory from './components/SoilLabDirectory.jsx';
 import StateRegistration from './components/StateRegistration.jsx';
@@ -162,11 +161,11 @@ export default function App() {
 
       <main style={{ flex: 1, overflowY: 'auto', background: 'var(--cream)', position: 'relative' }}>
         {activePage === 'dashboard' && <Dashboard user={user} onNavigate={setActivePage} profile={profile} />}
-        {activePage === 'maintenance' && <MaintenanceModule profile={profile} userId={user?.id} />}
+        {activePage === 'maintenance' && <MaintenanceModule profile={profile} userId={user?.id} farm={farm} onNavigate={setActivePage} />}
         {activePage === 'eligibility' && <EligibilityChecker onNavigate={setActivePage} onUpdateProfile={updateProfile} />}
         {activePage === 'tracker' && <ComplianceTracker userId={user?.id} certificationStatus={profile.certificationStatus} />}
         {activePage === 'osp' && <OSPGenerator profile={profile} onUpdateProfile={updateProfile} onNavigate={setActivePage} userId={user?.id} />}
-        {activePage === 'recordGenerators' && <RecordGenerators profile={profile} />}
+        {activePage === 'recordGenerators' && <RecordGenerators profile={profile} farm={farm} onNavigate={setActivePage} />}
         {parseRecordsRoute(activePage) && (
           <RecordsPage
             route={parseRecordsRoute(activePage)}
@@ -182,7 +181,6 @@ export default function App() {
             onRetryFarm={loadFarm}
           />
         )}
-        {activePage === 'receipts' && <ReceiptManager userId={user?.id} />}
         {activePage === 'certifiers' && <CertifierDirectory />}
         {activePage === 'soilLabs' && <SoilLabDirectory />}
         {activePage === 'stateReg' && <StateRegistration userId={user?.id} />}

@@ -355,3 +355,42 @@ describe('capture handler — upstream failures', () => {
     expect(store.insertRecords).not.toHaveBeenCalled();
   });
 });
+
+describe('capture handler — the farm’s fields', () => {
+  it('tells the extractor the farm’s field names, read as the caller for the caller’s farm', async () => {
+    store.listFieldNames = vi.fn(async () => ['B2', 'North 40']);
+    const res = await call(build(), { text: 'sprayed b2' });
+    expect(res.statusCode).toBe(200);
+    expect(store.listFieldNames).toHaveBeenCalledWith('good-token', { farmId: FARM_ID });
+    expect(extract).toHaveBeenCalledWith(expect.objectContaining({ fieldNames: ['B2', 'North 40'] }));
+  });
+
+  it('cleans the names before the extractor sees them', async () => {
+    store.listFieldNames = vi.fn(async () => [' B2 ', 'b2', null, 'x'.repeat(100)]);
+    await call(build(), { text: 'sprayed b2' });
+    expect(extract.mock.calls[0][0].fieldNames).toEqual(['B2']);
+  });
+
+  it('still files the records, without names, when the list cannot be read (and says so without the details)', async () => {
+    store.listFieldNames = vi.fn(async () => { throw new Error('db down'); });
+    const res = await call(build(), { text: 'sprayed b2' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json.records).toHaveLength(1);
+    expect(extract.mock.calls[0][0].fieldNames).toEqual([]);
+    expect(logger.warn).toHaveBeenCalled();
+  });
+
+  it('works with a store that has no field list', async () => {
+    const res = await call(build(), { text: 'sprayed b2' });
+    expect(res.statusCode).toBe(200);
+    expect(extract.mock.calls[0][0].fieldNames).toEqual([]);
+  });
+
+  it('does not read the list for a capture it already filed', async () => {
+    store.listFieldNames = vi.fn(async () => ['B2']);
+    store.findCapture.mockResolvedValue([{ id: 'r1', kind: 'activity', status: 'pending_review', record_date: '2026-10-11', payload: {}, missing_fields: [], version: 1 }]);
+    const res = await call(build(), { text: 'sprayed b2' });
+    expect(res.json.duplicate).toBe(true);
+    expect(store.listFieldNames).not.toHaveBeenCalled();
+  });
+});

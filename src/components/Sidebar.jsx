@@ -1,6 +1,6 @@
 import {
   Leaf, LayoutDashboard, ClipboardCheck, ListChecks, FileText,
-  LogOut, Microscope, Receipt, Users, ClipboardList, DollarSign,
+  LogOut, Microscope, Users, ClipboardList, DollarSign,
   ShieldCheck, FlaskConical, BadgeCheck, ShieldHalf, Scale, Wrench,
 } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext.jsx';
@@ -12,7 +12,6 @@ import NavItem from './nav/NavItem.jsx';
 const TOOLS_ITEMS = [
   { id: 'eligibility', icon: ClipboardCheck },
   { id: 'recordGenerators', icon: Microscope },
-  { id: 'receipts', icon: Receipt },
   { id: 'certifiers', icon: Users },
   { id: 'soilLabs', icon: FlaskConical },
   { id: 'omriGuide', icon: BadgeCheck },

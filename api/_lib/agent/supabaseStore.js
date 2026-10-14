@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { MAX_FIELD_NAMES } from './fieldNames.js';
 
 /** Columns the agent endpoints read back. Provenance (source, source_ref) stays server-side. */
 export const RECORD_COLUMNS = 'id, farm_id, kind, status, record_date, payload, missing_fields, confidence, version, created_by, attachments';
@@ -54,6 +55,13 @@ export function createAgentStore(env = process.env, { createClientImpl = createC
         .limit(1);
       if (error) throw dbError(error);
       return data?.[0] ? { farmId: data[0].farm_id, role: data[0].role } : null;
+    },
+
+    /** The names of the caller's farm's active fields, as the caller (row-level security decides what they may read). */
+    async listFieldNames(token, { farmId }) {
+      const { data, error } = await asUser(token).from('fields').select('name').eq('farm_id', farmId).eq('is_active', true).order('name', { ascending: true }).limit(MAX_FIELD_NAMES + 1);
+      if (error) throw dbError(error);
+      return (data ?? []).map((row) => row.name);
     },
 
     /** Records already filed for this capture key (empty when it is new). */

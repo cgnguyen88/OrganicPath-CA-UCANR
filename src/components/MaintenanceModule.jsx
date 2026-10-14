@@ -28,7 +28,7 @@ const TOOLS = [
   { id: 'input-verify', title: 'Input Re-verification', icon: Layers, color: '#f97316', desc: 'Annual check of fertilizers, seed and pest controls.' },
 ];
 
-export default function MaintenanceModule({ profile, userId }) {
+export default function MaintenanceModule({ profile, userId, farm, onNavigate }) {
   const [activeSubTool, setActiveSubTool] = useState(null);
 
   if (activeSubTool) {
@@ -55,8 +55,8 @@ export default function MaintenanceModule({ profile, userId }) {
           {activeSubTool === 'audit-ready' && <AuditReadinessCheck userId={userId} />}
           {activeSubTool === 'inspector-prep' && <InspectorPrep profile={profile} />}
           {activeSubTool === 'adverse-action' && <ActionResponse profile={profile} />}
-          {activeSubTool === 'national-list' && <NationalListReview userId={userId} profile={profile} />}
-          {activeSubTool === 'input-verify' && <InputVerification userId={userId} />}
+          {activeSubTool === 'national-list' && <NationalListReview farm={farm} profile={profile} />}
+          {activeSubTool === 'input-verify' && <InputVerification farm={farm} onNavigate={onNavigate} />}
         </div>
       </div>
     );

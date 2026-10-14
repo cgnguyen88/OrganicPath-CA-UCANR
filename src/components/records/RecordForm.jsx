@@ -7,6 +7,8 @@ import { canReview } from '../../domain/records/workflow.js';
 import { createRecord, updateRecord } from '../../lib/records.js';
 import { recordsText } from './text.js';
 import * as ui from './ui.js';
+import { useFarmFields } from './farmFields.js';
+import FieldPicker from './FieldPicker.jsx';
 import Modal from './Modal.jsx';
 
 const blank = (value) => value === undefined || value === null || String(value).trim() === '';
@@ -42,20 +44,25 @@ function Field({ field, lang, value, required, invalid, onChange, id, invalidTex
 }
 
 /**
- * Create or edit a record of one kind. Fields come from the domain definition, so the
+ * Create or edit a record of one kind (a new one can start from some `prefill` values). Fields come from the domain definition, so the
  * form, validation and storage can never disagree. What is still missing is shown live,
  * and who can submit what depends on the role (crew submit; owners/managers approve).
  */
-export default function RecordForm({ kind, role, farmId, record, today, onSaved, onCancel }) {
+export default function RecordForm({ kind, role, farmId, record, prefill, today, onSaved, onCancel }) {
   const { lang: rawLang } = useLanguage();
   const lang = rawLang === 'es' ? 'es' : 'en';
   const tt = recordsText(lang);
   const fields = KIND_FIELDS[kind];
   const isEdit = Boolean(record);
+  // An existing record starts from its own values; a new one can start from some given (a new count of an item already counted).
+  const startingPayload = record ? record.payload : prefill;
+  // The farm's own list of fields to pick from (a plain box until it has an active field).
+  const farmFields = useFarmFields().fields;
+  const pickFromFarmFields = farmFields.some((f) => f.is_active);
 
   // Remember what the form started with, to tell whether the person has typed anything.
   const [initial] = useState(() => ({
-    values: Object.fromEntries(fields.map((f) => [f.key, blank(record?.payload?.[f.key]) ? '' : String(record.payload[f.key])])),
+    values: Object.fromEntries(fields.map((f) => [f.key, blank(startingPayload?.[f.key]) ? '' : String(startingPayload[f.key])])),
     // An existing record with no date stays without one; only a NEW record defaults to today.
     date: record ? record.record_date ?? '' : today ?? todayLocalIso(),
   }));
@@ -114,7 +121,19 @@ export default function RecordForm({ kind, role, farmId, record, today, onSaved,
         {evaluation.errors.record_date && <div id="rec-date-error" style={{ color: '#b91c1c', fontSize: 11, marginTop: 3 }}>{tt.field.invalid}</div>}
       </div>
 
-      {fields.map((field) => (
+      {fields.map((field) => field.key === 'field' && pickFromFarmFields ? (
+        <FieldPicker
+          key={field.key}
+          id={`rec-${field.key}`}
+          label={`${field.label[lang]}${required.has(field.key) ? ' *' : ''}`}
+          fields={farmFields}
+          value={values[field.key]}
+          required={required.has(field.key)}
+          invalid={Boolean(evaluation.errors[field.key])}
+          invalidText={tt.field.invalid}
+          onChange={(value) => setValues((current) => ({ ...current, [field.key]: value }))}
+        />
+      ) : (
         <Field
           key={field.key}
           id={`rec-${field.key}`}

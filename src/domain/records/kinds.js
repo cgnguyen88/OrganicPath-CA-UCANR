@@ -170,6 +170,8 @@ export const KIND_FIELDS = Object.freeze({
     field('item', 'text', 'Item', 'Artículo', { required: true }),
     field('quantity', 'number', 'Quantity on hand', 'Cantidad disponible', { required: true }),
     field('unit', 'text', 'Unit', 'Unidad', { required: true }),
+    field('reorder_level', 'number', 'Reorder level', 'Nivel de reposición'),
+    omriField(),
     field('location', 'text', 'Location', 'Ubicación'),
     field('lot_number', 'text', 'Lot number', 'N.º de lote'),
     notesField(),

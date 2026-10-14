@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { KIND_FIELDS, KIND_META, optionLabel } from '../../domain/records/kinds.js';
 import { availableActions, canEditRecord } from '../../domain/records/workflow.js';
-import { getRecordFileUrl } from '../../lib/db.js';
+import { getAttachmentUrl } from '../../lib/db.js';
 import { listRevisions, setRecordStatus } from '../../lib/records.js';
 import { recordsText } from './text.js';
 import * as ui from './ui.js';
 import Modal from './Modal.jsx';
 import RecordForm from './RecordForm.jsx';
 import StatusBadge from './StatusBadge.jsx';
+import UnknownFieldHint from './UnknownFieldHint.jsx';
 
 const dateOnly = (iso) => (iso ? String(iso).slice(0, 10) : null);
 
@@ -70,9 +71,9 @@ export default function RecordDetail({ record, role, userId, farm, onClose, onCh
     onChanged?.(result.data);
   }
 
-  async function openFile(path) {
+  async function openFile(file) {
     setError(null);
-    const url = await getRecordFileUrl(path);
+    const url = await getAttachmentUrl(file);
     if (!url) {
       setError({ code: 'file' });
       return;
@@ -109,6 +110,7 @@ export default function RecordDetail({ record, role, userId, farm, onClose, onCh
       {present.map((f) => (
         <Row key={f.key} label={f.label[lang]}>
           {f.type === 'select' ? optionLabel(kind, f.key, current.payload[f.key], lang) : String(current.payload[f.key])}
+          {f.key === 'field' && <UnknownFieldHint name={current.payload[f.key]} farmId={farm.id} role={role} />}
         </Row>
       ))}
 
@@ -121,7 +123,7 @@ export default function RecordDetail({ record, role, userId, farm, onClose, onCh
       {current.attachments?.length > 0 && (
         <Row label={tt.detail.sourceFile}>
           {current.attachments.map((file, index) => (
-            <button key={file.path} type="button" onClick={() => openFile(file.path)} style={{ ...ui.buttonSecondary, padding: '3px 10px', marginRight: 6 }}>
+            <button key={file.path} type="button" onClick={() => openFile(file)} style={{ ...ui.buttonSecondary, padding: '3px 10px', marginRight: 6 }}>
               {tt.detail.viewFile(index + 1)}
             </button>
           ))}

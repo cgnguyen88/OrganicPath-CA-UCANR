@@ -1,9 +1,18 @@
 import { describe, it, expect } from 'vitest';
 import { RECORD_KINDS, KIND_FIELDS } from '../../../src/domain/records/kinds.js';
-import { buildRecordTools, toolNameForKind, kindForToolName } from './tools.js';
+import { buildRecordTools, toolNameForKind, kindForToolName, KIND_GUIDANCE } from './tools.js';
 
 const tools = buildRecordTools();
 const byKind = Object.fromEntries(tools.map((t) => [kindForToolName(t.name), t]));
+
+describe('the inventory tool', () => {
+  it('can carry a reorder level and an OMRI status, and the guidance says to fill them only when stated or visible', () => {
+    const properties = byKind.inventory.input_schema.properties.payload.properties;
+    expect(Object.keys(properties)).toEqual(expect.arrayContaining(['item', 'quantity', 'unit', 'reorder_level', 'omri_status']));
+    expect(KIND_GUIDANCE.inventory).toMatch(/reorder level only if (it is )?stated/i);
+    expect(KIND_GUIDANCE.inventory).toMatch(/OMRI.*only.*(seal|listing).*visible|visible.*OMRI/i);
+  });
+});
 
 describe('buildRecordTools', () => {
   it('has exactly one tool per record kind, and no other tool (the agent can only PROPOSE records)', () => {

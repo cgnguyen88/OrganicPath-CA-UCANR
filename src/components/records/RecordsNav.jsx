@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ClipboardList, ClipboardCheck, FileText, History, Layers, ChevronDown, ChevronRight, Sprout, Pin } from 'lucide-react';
+import { ClipboardList, ClipboardCheck, Boxes, FileText, History, Layers, MapPin, ChevronDown, ChevronRight, Sprout, Pin } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { RECORD_KINDS, KIND_META } from '../../domain/records/kinds.js';
 import { DEFAULT_SAVED_VIEWS } from '../../domain/records/savedViews.js';
@@ -14,8 +14,8 @@ const VIEWS_ACCENT = '#b69cff';
 
 /**
  * The farm-records part of the sidebar, as two sections of their own: "Farm Records" (overview, the
- * review queue with its count, the per-kind logs, the change history) and "Saved Views" (the farm's
- * pinned shortcuts).
+ * review queue with its count, the per-kind logs, stock, fields, the change history, reports) and "Saved
+ * Views" (the farm's pinned shortcuts).
  */
 export default function RecordsNav({ activePage, onNavigate, needsReviewCount = 0, savedViews = [] }) {
   const { lang: rawLang } = useLanguage();
@@ -45,6 +45,8 @@ export default function RecordsNav({ activePage, onNavigate, needsReviewCount = 
           <NavItem key={kind} indent={2} label={KIND_META[kind].plural[lang]} active={activePage === logRoute(kind)} onClick={() => onNavigate(logRoute(kind))} />
         ))}
 
+        <NavItem icon={Boxes} label={tt.nav.stock} active={activePage === ROUTES.stock} onClick={() => onNavigate(ROUTES.stock)} />
+        <NavItem icon={MapPin} label={tt.nav.fields} active={activePage === ROUTES.fields} onClick={() => onNavigate(ROUTES.fields)} />
         <NavItem icon={History} label={tt.nav.history} active={activePage === ROUTES.history} onClick={() => onNavigate(ROUTES.history)} />
         <NavItem icon={FileText} label={tt.nav.reports} active={activePage === ROUTES.reports} onClick={() => onNavigate(ROUTES.reports)} />
       </NavGroup>

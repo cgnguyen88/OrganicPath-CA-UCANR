@@ -1,5 +1,6 @@
 import { redact } from '../httpUtils.js';
 import { buildCaptureRows, CAPTURE_SOURCE, captureHashOf } from './captureRows.js';
+import { readFieldNames } from './fieldNames.js';
 
 const UNIQUE_VIOLATION = '23505';
 /** A rejected or voided capture no longer counts as "already filed". */
@@ -27,6 +28,7 @@ export class PipelineError extends Error {
  *     findCapture: (captureHash: string) => Promise<object[]>,
  *     uploadAttachments: (q: { captureHash: string, attachments: object[] }) => Promise<object[]>,
  *     insertRecords: (rows: object[]) => Promise<object[]>,
+ *     listFieldNames?: () => Promise<string[]>,
  *   },
  *   extract: Function, anthropic: object, config: object,
  *   userId: string, farmId: string,
@@ -56,9 +58,11 @@ export async function runCapture({ ports, extract, anthropic, config, userId, fa
   }
 
   // ── Read ──────────────────────────────────────────────────────────────────
+  // The farm's field names help the model spell a field the way the farm does; the capture goes on without them.
+  const fieldNames = await readFieldNames(ports.listFieldNames, logger);
   let result;
   try {
-    result = await extract({ anthropic, config, input: { text, attachments }, today: day, signal });
+    result = await extract({ anthropic, config, input: { text, attachments }, today: day, signal, fieldNames });
   } catch (err) {
     throw new PipelineError('extract', err);
   }

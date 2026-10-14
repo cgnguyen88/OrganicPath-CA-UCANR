@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import { KIND_FIELDS, KIND_META, requiredFieldKeys, optionLabel } from './kinds.js';
+import { parseDecimalText } from './numbers.js';
 
 const MAX_TEXT = 200;
 const MAX_TEXTAREA = 2000;
 const MAX_NUMBER = 1e9;
-const DECIMAL = /^(?:\d+(?:[.,]\d+)?|[.,]\d+)$/;
 const MIN_YEAR = 1900;
 const MAX_YEAR = 2100;
 /** The first and last date a record, or a report, may use (for date pickers). */
@@ -19,10 +19,7 @@ function fieldSchema(field) {
     const toNumber = (value) => {
       const v = blankToUndefined(value);
       if (typeof v !== 'string') return v;
-      // Plain decimals only (a comma works as the decimal point). Number() alone would turn
-      // '0x1F', '1e3' or '0b11' into numbers the person never meant.
-      const text = v.trim();
-      return DECIMAL.test(text) ? Number(text.replace(',', '.')) : Number.NaN;
+      return parseDecimalText(v);
     };
     return z.preprocess(toNumber, z.number().finite().min(0).max(MAX_NUMBER).optional());
   }
