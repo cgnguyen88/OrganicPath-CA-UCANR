@@ -112,7 +112,7 @@ export default function Sidebar({ activePage, onNavigate, user, farm, onLogout, 
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ color: 'rgba(255,255,255,0.92)', fontSize: 12.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</div>
-              <div title={farm ? `${farm.name} · ${farm.farm_code}` : user.email} style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div title={farm ? `${farm.name} · ${farm.farm_code}` : user.email} style={{ color: 'var(--menu-muted)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {farm ? farm.name : user.email}
               </div>
             </div>

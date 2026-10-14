@@ -68,17 +68,17 @@ export const GLOBAL_CSS = `
      A translucent, blurred panel floating over a slow color backdrop, with a bright rim and a soft
      inner glow. Solid fallbacks below for no backdrop-filter, reduced transparency and reduced motion. */
   .side-menu {
-    --menu-text: rgba(255,255,255,0.78); --menu-muted: rgba(255,255,255,0.56);
-    --glass-fill: linear-gradient(155deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 50%, rgba(255,255,255,0.06) 100%);
-    --glass-rim: rgba(255,255,255,0.15); --glass-shine: rgba(255,255,255,0.24);
+    --menu-text: rgba(255,255,255,0.92); --menu-muted: rgba(255,255,255,0.72);
+    --glass-fill: linear-gradient(155deg, rgba(14,38,64,0.55) 0%, rgba(5,18,34,0.62) 55%, rgba(8,24,42,0.58) 100%);
+    --glass-rim: rgba(255,255,255,0.13); --glass-shine: rgba(255,255,255,0.20);
     --glass-ease: cubic-bezier(.22,.8,.24,1);
     position: relative; overflow: hidden; isolation: isolate;
-    background: linear-gradient(165deg, #001a31 0%, #002a4e 52%, #00223f 100%);
+    background: linear-gradient(165deg, #010c19 0%, #031a31 55%, #02121f 100%);
   }
   .menu-backdrop { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
-  .menu-orb { position: absolute; border-radius: 50%; filter: blur(48px); opacity: .26; }
+  .menu-orb { position: absolute; border-radius: 50%; filter: blur(48px); opacity: .14; }
   .menu-orb-sky   { width: 240px; height: 240px; left: -90px; top: 10px;     background: radial-gradient(circle at 40% 40%, #3AA8E4, rgba(58,168,228,0) 70%); }
-  .menu-orb-green { width: 260px; height: 260px; left: -60px; bottom: -110px; background: radial-gradient(circle at 40% 40%, #2fa84f, rgba(47,168,79,0) 70%); opacity: .22; }
+  .menu-orb-green { width: 260px; height: 260px; left: -60px; bottom: -110px; background: radial-gradient(circle at 40% 40%, #2fa84f, rgba(47,168,79,0) 70%); opacity: .12; }
 
   .menu-panel {
     position: relative; z-index: 1; display: flex; flex-direction: column;
@@ -86,11 +86,11 @@ export const GLOBAL_CSS = `
     background: var(--glass-fill);
     -webkit-backdrop-filter: blur(24px) saturate(140%); backdrop-filter: blur(24px) saturate(140%);
     border: 1px solid var(--glass-rim);
-    box-shadow: inset 0 1px 0 var(--glass-shine), inset 0 0 22px rgba(255,255,255,0.025), 0 14px 32px rgba(0,10,25,0.38);
+    box-shadow: inset 0 1px 0 var(--glass-shine), inset 0 0 22px rgba(255,255,255,0.025), 0 14px 32px rgba(0,5,15,0.5);
   }
   .menu-panel::before { /* a very soft sheen along the top edge */
     content: ""; position: absolute; left: 0; right: 0; top: 0; height: 70px; pointer-events: none; z-index: 0;
-    background: radial-gradient(120% 100% at 20% 0%, rgba(255,255,255,0.09), rgba(255,255,255,0) 65%);
+    background: radial-gradient(120% 100% at 20% 0%, rgba(255,255,255,0.06), rgba(255,255,255,0) 65%);
   }
   .menu-panel > * { position: relative; z-index: 1; }
 
@@ -107,8 +107,8 @@ export const GLOBAL_CSS = `
   }
   .menu-footer {
     margin: 0 10px 10px; padding: 10px; border-radius: 16px;
-    background: linear-gradient(160deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04));
-    border: 1px solid rgba(255,255,255,0.14); box-shadow: inset 0 1px 0 rgba(255,255,255,0.22);
+    background: linear-gradient(160deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
+    border: 1px solid rgba(255,255,255,0.12); box-shadow: inset 0 1px 0 rgba(255,255,255,0.14);
   }
 
   .nav-item {
@@ -117,21 +117,21 @@ export const GLOBAL_CSS = `
     color: var(--menu-text); font: 400 13px/1.2 Inter, sans-serif; text-align: left; cursor: pointer;
     transition: background-color .28s var(--glass-ease), box-shadow .28s var(--glass-ease), border-color .28s var(--glass-ease), color .2s ease;
   }
-  .nav-item:hover { background: rgba(255,255,255,0.09); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,0.14); }
+  .nav-item:hover { background: rgba(255,255,255,0.10); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,0.14); }
   .nav-item:focus-visible { outline: 2px solid #8fd0ff; outline-offset: -2px; }
   .nav-item[aria-current="page"] { /* the current page: a gold-tinted glass pill */
     color: #fff; font-weight: 600; border-color: rgba(253,189,16,0.30);
-    background: linear-gradient(135deg, rgba(253,189,16,0.20) 0%, rgba(255,255,255,0.10) 60%, rgba(255,255,255,0.06) 100%);
+    background: linear-gradient(135deg, rgba(253,189,16,0.24) 0%, rgba(255,255,255,0.09) 60%, rgba(255,255,255,0.05) 100%);
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.30), 0 4px 12px rgba(253,189,16,0.08);
   }
-  .nav-item svg { flex-shrink: 0; opacity: .85; transition: opacity .2s ease, color .2s ease; }
+  .nav-item svg { flex-shrink: 0; opacity: .9; transition: opacity .2s ease, color .2s ease; }
   .nav-item:hover svg { opacity: 1; }
   .nav-item[aria-current="page"] svg { opacity: 1; color: #ffd24a; }
 
   /* Each main section is a card of its own: a clear title, a small tinted icon, a hairline of its accent. */
   .nav-section {
     --section-accent: #9fb4cc; position: relative; margin: 10px 0 0; overflow: hidden; border-radius: 14px;
-    background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.09); box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+    background: rgba(0,6,16,0.34); border: 1px solid rgba(255,255,255,0.10); box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
   }
   .nav-section::before {
     content: ""; position: absolute; left: 14px; right: 14px; top: 0; height: 1px; pointer-events: none;
@@ -139,10 +139,10 @@ export const GLOBAL_CSS = `
   }
   .nav-section-header {
     width: 100%; display: flex; align-items: center; gap: 8px; padding: 9px 10px 8px; border: 0; background: transparent; cursor: pointer;
-    color: rgba(255,255,255,0.94); font: 600 12.5px/1.2 Inter, sans-serif; text-align: left;
+    color: #fff; font: 600 12.5px/1.2 Inter, sans-serif; text-align: left;
     transition: background-color .2s ease;
   }
-  .nav-section-header:hover { background: rgba(255,255,255,0.04); }
+  .nav-section-header:hover { background: rgba(255,255,255,0.06); }
   .nav-section-header:focus-visible { outline: 2px solid #8fd0ff; outline-offset: -2px; }
   .nav-section-icon {
     width: 20px; height: 20px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px;
@@ -152,8 +152,8 @@ export const GLOBAL_CSS = `
     .nav-section-icon { background: color-mix(in srgb, var(--section-accent) 20%, transparent); }
   }
   .nav-section-title { flex: 1; letter-spacing: .01em; }
-  .nav-section-count { min-width: 18px; padding: 2px 6px; border-radius: 9px; background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.78); font-size: 10.5px; font-weight: 600; line-height: 1; text-align: center; }
-  .nav-section-chevron { flex-shrink: 0; color: rgba(255,255,255,0.45); }
+  .nav-section-count { min-width: 18px; padding: 2px 6px; border-radius: 9px; background: rgba(255,255,255,0.14); color: #fff; font-size: 10.5px; font-weight: 600; line-height: 1; text-align: center; }
+  .nav-section-chevron { flex-shrink: 0; color: rgba(255,255,255,0.65); }
   .nav-section-body { padding: 0 6px 6px; }
   /* The list scrolls under the account card: fade its last few pixels so that is obvious. */
   .side-menu .menu-nav { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent); }
@@ -169,7 +169,7 @@ export const GLOBAL_CSS = `
 
   .menu-segment {
     display: inline-flex; padding: 3px; border-radius: 999px;
-    background: rgba(0,10,25,0.28); box-shadow: inset 0 1px 3px rgba(0,0,0,0.35), 0 1px 0 rgba(255,255,255,0.1);
+    background: rgba(0,4,12,0.45); box-shadow: inset 0 1px 3px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.08);
   }
   .menu-segment button {
     border: 1px solid transparent; border-radius: 999px; padding: 5px 12px; background: transparent; cursor: pointer;
@@ -193,11 +193,11 @@ export const GLOBAL_CSS = `
 
   /* Browsers without backdrop blur: a solid, readable panel instead of broken glass. */
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    .menu-panel { background: rgba(6,34,64,0.96); }
+    .menu-panel { background: rgba(5,20,38,0.97); }
   }
   /* People who ask for less transparency or less motion get a calm, solid menu. */
   @media (prefers-reduced-transparency: reduce) {
-    .menu-panel { background: #06223f; -webkit-backdrop-filter: none; backdrop-filter: none; }
+    .menu-panel { background: #051426; -webkit-backdrop-filter: none; backdrop-filter: none; }
     .menu-orb { display: none; }
   }
   @media (prefers-reduced-motion: reduce) {
