@@ -6,6 +6,7 @@ describe('recordsRoute', () => {
     expect(parseRecordsRoute(ROUTES.overview)).toEqual({ type: 'overview' });
     expect(parseRecordsRoute(ROUTES.review)).toEqual({ type: 'review' });
     expect(parseRecordsRoute(ROUTES.history)).toEqual({ type: 'history' });
+    expect(parseRecordsRoute(ROUTES.reports)).toEqual({ type: 'reports' });
     expect(parseRecordsRoute(logRoute('purchase'))).toEqual({ type: 'log', kind: 'purchase' });
     expect(parseRecordsRoute(viewRoute('3f2a-91bc'))).toEqual({ type: 'view', viewId: '3f2a-91bc' });
   });
@@ -21,5 +22,6 @@ describe('recordsRoute', () => {
   it('recognizes records pages', () => {
     expect(isRecordsPage('log:harvest')).toBe(true);
     expect(isRecordsPage('needsReview')).toBe(true);
+    expect(isRecordsPage('recordReports')).toBe(true);
   });
 });

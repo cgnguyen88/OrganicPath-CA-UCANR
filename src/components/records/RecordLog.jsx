@@ -3,8 +3,10 @@ import { Plus } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { KIND_META, RECORD_STATUSES } from '../../domain/records/kinds.js';
 import { listRecords } from '../../lib/records.js';
+import { listRecordsForReport } from '../../lib/reportData.js';
 import { recordsText } from './text.js';
 import * as ui from './ui.js';
+import ExportButton from './ExportButton.jsx';
 import RecordDetail from './RecordDetail.jsx';
 import RecordForm from './RecordForm.jsx';
 import RecordTable from './RecordTable.jsx';
@@ -12,7 +14,7 @@ import RecordTable from './RecordTable.jsx';
 const FILTERABLE = RECORD_STATUSES.filter((s) => s !== 'voided');
 
 /** The log of one kind of record (Harvest Log, Purchases, …). */
-export default function RecordLog({ kind, farm, role, userId, onChanged }) {
+export default function RecordLog({ kind, farm, role, userId, operation, needsReviewCount, onChanged }) {
   const { lang: rawLang } = useLanguage();
   const lang = rawLang === 'es' ? 'es' : 'en';
   const tt = recordsText(lang);
@@ -44,6 +46,7 @@ export default function RecordLog({ kind, farm, role, userId, onChanged }) {
 
   const visible = (records ?? []).filter((r) => filter === 'all' || r.status === filter);
   const label = KIND_META[kind].label[lang];
+  const loadForExport = (includeUnapproved) => listRecordsForReport({ farmId: farm.id, kinds: [kind], includeUnapproved });
 
   return (
     <div style={ui.page}>
@@ -55,6 +58,7 @@ export default function RecordLog({ kind, farm, role, userId, onChanged }) {
             <option value="all">{tt.log.all}</option>
             {FILTERABLE.map((status) => <option key={status} value={status}>{tt.status[status]}</option>)}
           </select>
+          <ExportButton title={KIND_META[kind].plural} farm={farm} operation={operation} load={loadForExport} allowUnapproved needsReviewCount={needsReviewCount} />
           <button type="button" disabled={records === null} onClick={() => setAdding(true)} style={{ ...ui.buttonPrimary, ...(records === null ? ui.buttonDisabled : {}) }}><Plus size={15} />{tt.log.add(label)}</button>
         </div>
       </div>

@@ -204,9 +204,37 @@ export const GLOBAL_CSS = `
     .nav-item, .menu-segment button, .menu-icon-button, .nav-group-header, .nav-section-header, .nav-item svg { transition: none; }
   }
 
+  /* ── Reports: the page shown on screen, and what the browser prints or saves as PDF ───────── */
+  /* A page keeps its width and scrolls sideways in a small window, rather than crushing its columns. */
+  .report-doc { box-sizing: border-box; min-width: 860px; background: #fff; color: #0f172a; font: 12px/1.45 Inter, sans-serif; padding: 28px 32px; border: 1px solid #e2e8f0; border-radius: 10px; }
+  .report-doc h1 { font: 700 22px/1.2 Lora, serif; margin: 0 0 14px; color: #0f172a; }
+  .report-doc h2 { font: 700 14px/1.3 Lora, serif; margin: 22px 0 8px; color: #0f172a; break-after: avoid; }
+  .report-meta { margin: 0 0 18px; display: grid; grid-template-columns: max-content 1fr; gap: 3px 16px; }
+  .report-meta > div { display: contents; }
+  .report-meta dt { font-weight: 600; color: #475569; }
+  .report-meta dd { margin: 0; overflow-wrap: anywhere; }
+  .report-doc table { width: 100%; border-collapse: collapse; margin: 0 0 6px; font-size: 11px; }
+  .report-doc th { text-align: left; background: #e2e8f0; font-weight: 600; padding: 5px 7px; border: 1px solid #cbd5e1; }
+  .report-doc td { padding: 5px 7px; border: 1px solid #cbd5e1; vertical-align: top; overflow-wrap: anywhere; }
+  .report-doc td.report-date { white-space: nowrap; }
+  .report-doc .report-summary { width: auto; min-width: 280px; margin-bottom: 8px; }
+  .report-doc .report-note { color: #64748b; font-style: italic; margin: 10px 0; }
+  .report-sign { display: grid; grid-template-columns: 5fr 5fr 3fr; gap: 24px; margin-top: 40px; font-size: 11px; color: #475569; break-inside: avoid; }
+  .report-line { display: block; height: 28px; border-bottom: 1px solid #0f172a; margin-bottom: 4px; }
+  .report-foot { margin: 22px 0 0; font-size: 10px; color: #64748b; }
+  .print-only { display: none; }
+  @page report { size: landscape; margin: 12mm; }
+
   @media print {
     .no-print { display: none !important; }
     body { background: white; }
+    /* Printing a report: show only the report (the class is set just while the print window is open). */
+    body.printing-report > *:not(.print-only) { display: none !important; }
+    body.printing-report .print-only { display: block !important; page: report; }
+    .print-only .report-doc { min-width: 0; border: 0; border-radius: 0; padding: 0; font-size: 9pt; }
+    .print-only .report-doc table { font-size: 8.5pt; }
+    .print-only .report-doc tr { break-inside: avoid; }
+    .print-only .report-doc thead { display: table-header-group; }
   }
 
   @keyframes caretBlink {

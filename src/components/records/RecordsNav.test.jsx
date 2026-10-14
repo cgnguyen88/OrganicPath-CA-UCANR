@@ -71,6 +71,32 @@ describe('RecordsNav', () => {
     expect(onNavigate.mock.calls.map((c) => c[0])).toEqual(['farmRecords', 'needsReview', 'changeHistory', 'view:view-2', 'log:purchase']);
   });
 
+  it('has a Reports page, with the other record pages, that is marked when active', async () => {
+    const { user, onNavigate } = setup();
+    await user.click(screen.getByRole('button', { name: /^Reports/ }));
+    expect(onNavigate).toHaveBeenCalledWith('recordReports');
+    cleanup();
+    setup({ activePage: 'recordReports' });
+    expect(screen.getByRole('button', { name: /^Reports/ }).getAttribute('aria-current')).toBe('page');
+  });
+
+
+
+
+
+
+
+  it('calls it Informes in Spanish', () => {
+    setup({}, 'es');
+    expect(screen.getByRole('button', { name: /^Informes/ })).toBeTruthy();
+  });
+
+  it('keeps Reports open inside Farm Records even when that section was collapsed, while on the Reports page', () => {
+    localStorage.setItem('orgpath_nav_group_records', 'false');
+    setup({ activePage: 'recordReports' });
+    expect(screen.getByRole('button', { name: /^Reports/ })).toBeTruthy();
+  });
+
   it('marks the active page', () => {
     setup({ activePage: 'needsReview' });
     expect(screen.getByRole('button', { name: /^Needs Review/ }).getAttribute('aria-current')).toBe('page');

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { RECORD_KINDS, RECORD_STATUSES } from './kinds.js';
-import { seasonRange } from './seasons.js';
+import { previousDay, seasonRange } from './seasons.js';
+import { reportStatuses } from './report.js';
 
 /**
  * Saved views are DATA a user can edit, so their filters are a small declarative language,
@@ -115,6 +116,22 @@ export function applyFilterToQuery(query, filter, ctx) {
   }
   return q;
 }
+
+/**
+ * The dates a view covers, for headings on a report: the first and last day of its season (both
+ * included), or all dates.
+ *
+ * @param {{ season?: 'current' | 'previous' | 'all' }} filter a value returned by parseViewFilter
+ * @param {{ farm: object | null, today: string | Date }} ctx
+ * @returns {{ type: 'range', from: string, to: string } | { type: 'all' }}
+ */
+export function viewPeriod(filter, ctx) {
+  const bounds = seasonBounds(filter, ctx);
+  return bounds ? { type: 'range', from: bounds.start, to: previousDay(bounds.end) } : { type: 'all' };
+}
+
+/** Whether a view also looks at records still being worked on (rejected and voided ones never appear in a report). @param {{ status?: string[] }} filter */
+export const viewIncludesUnapproved = (filter) => (filter.status ?? ['approved']).some((status) => reportStatuses(true).includes(status) && status !== 'approved');
 
 /** The pinned views every farm starts with. The database seeds the same filters (a test keeps them in sync). */
 export const DEFAULT_SAVED_VIEWS = Object.freeze([

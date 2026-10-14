@@ -173,6 +173,7 @@ export default function App() {
             farm={farm}
             role={recordsMeta.role}
             userId={user?.id}
+            operation={profile}
             savedViews={recordsMeta.savedViews}
             metaReady={recordsMeta.ready}
             needsReviewCount={recordsMeta.needsReviewCount}

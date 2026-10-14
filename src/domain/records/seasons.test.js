@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { seasonRange, todayLocalIso } from './seasons.js';
+import { seasonRange, todayLocalIso, previousDay, seasonPeriod, monthsBefore } from './seasons.js';
 
 const farm = (month, day) => ({ season_start_month: month, season_start_day: day });
 
@@ -56,3 +56,65 @@ describe('todayLocalIso', () => {
     expect(todayLocalIso()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
+
+describe('previousDay', () => {
+  it('gives the day before, across month and year ends', () => {
+    expect(previousDay('2026-10-14')).toBe('2026-10-13');
+    expect(previousDay('2026-11-01')).toBe('2026-10-31');
+    expect(previousDay('2027-01-01')).toBe('2026-12-31');
+    expect(previousDay('2027-04-01')).toBe('2027-03-31');
+  });
+
+  it('knows about leap years', () => {
+    expect(previousDay('2028-03-01')).toBe('2028-02-29');
+    expect(previousDay('2027-03-01')).toBe('2027-02-28');
+  });
+
+  it('turns a season’s exclusive end into the last day of the season', () => {
+    const season = seasonRange({ season_start_month: 4, season_start_day: 1 }, '2026-10-14');
+    expect(previousDay(season.end)).toBe('2027-03-31');
+  });
+});
+
+describe('seasonPeriod', () => {
+  const farm = { season_start_month: 4, season_start_day: 1 };
+
+  it('gives the first and the last day of this season', () => {
+    expect(seasonPeriod(farm, '2026-10-14', 0)).toEqual({ from: '2026-04-01', to: '2027-03-31' });
+  });
+
+  it('gives last season, and the one before it', () => {
+    expect(seasonPeriod(farm, '2026-10-14', -1)).toEqual({ from: '2025-04-01', to: '2026-03-31' });
+    expect(seasonPeriod(farm, '2026-10-14', -2)).toEqual({ from: '2024-04-01', to: '2025-03-31' });
+  });
+
+  it('is the calendar year for a farm with no season start', () => {
+    expect(seasonPeriod(null, '2026-10-14', 0)).toEqual({ from: '2026-01-01', to: '2026-12-31' });
+  });
+
+  it('looks at this season by default', () => {
+    expect(seasonPeriod(farm, '2026-10-14')).toEqual({ from: '2026-04-01', to: '2027-03-31' });
+  });
+});
+
+describe('monthsBefore', () => {
+  it('goes back the number of months, keeping the day', () => {
+    expect(monthsBefore('2026-10-14', 12)).toBe('2025-10-14');
+    expect(monthsBefore('2026-10-14', 3)).toBe('2026-07-14');
+    expect(monthsBefore('2026-10-14', 0)).toBe('2026-10-14');
+  });
+
+  it('crosses year ends', () => {
+    expect(monthsBefore('2026-02-10', 3)).toBe('2025-11-10');
+    expect(monthsBefore('2026-01-31', 1)).toBe('2025-12-31');
+    expect(monthsBefore('2026-10-14', 60)).toBe('2021-10-14');
+  });
+
+  it('uses the last day of a shorter month rather than spilling into the next', () => {
+    expect(monthsBefore('2026-03-31', 1)).toBe('2026-02-28');
+    expect(monthsBefore('2028-03-31', 1)).toBe('2028-02-29');
+    expect(monthsBefore('2028-02-29', 12)).toBe('2027-02-28');
+    expect(monthsBefore('2026-10-31', 4)).toBe('2026-06-30');
+  });
+});
+

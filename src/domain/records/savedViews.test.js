@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseViewFilter, matchesFilter, applyFilterToQuery, DEFAULT_SAVED_VIEWS, MAX_VIEW_CONDITIONS } from './savedViews.js';
+import { parseViewFilter, matchesFilter, applyFilterToQuery, viewPeriod, viewIncludesUnapproved, DEFAULT_SAVED_VIEWS, MAX_VIEW_CONDITIONS } from './savedViews.js';
 
 const farm = { season_start_month: 4, season_start_day: 1 };
 const ctx = { farm, today: '2026-10-12' }; // current season: 2026-04-01 → 2027-04-01
@@ -178,5 +178,55 @@ describe('applyFilterToQuery agrees with matchesFilter', () => {
     const viaQuery = applyFilterToQuery(new MemoryQuery(SAMPLE), filter, ctx).rows;
     const viaMemory = SAMPLE.filter((r) => matchesFilter(r, filter, ctx));
     expect(viaQuery).toEqual(viaMemory);
+  });
+});
+
+describe('viewPeriod', () => {
+  it('is the current season, from its first day to its last day, for a view of this season', () => {
+    expect(viewPeriod({ season: 'current' }, ctx)).toEqual({ type: 'range', from: '2026-04-01', to: '2027-03-31' });
+  });
+
+  it('is last season for a view of last season', () => {
+    expect(viewPeriod({ season: 'previous' }, ctx)).toEqual({ type: 'range', from: '2025-04-01', to: '2026-03-31' });
+  });
+
+  it('is all dates for a view that does not look at a season', () => {
+    expect(viewPeriod({ season: 'all' }, ctx)).toEqual({ type: 'all' });
+    expect(viewPeriod({}, ctx)).toEqual({ type: 'all' });
+  });
+
+  it('matches the records the view itself picks: the same first and last day', () => {
+    const period = viewPeriod({ season: 'current' }, ctx);
+    const view = { kinds: ['harvest'], status: ['approved'], season: 'current', where: [] };
+    expect(matchesFilter(rec('harvest', period.from), view, ctx)).toBe(true);
+    expect(matchesFilter(rec('harvest', period.to), view, ctx)).toBe(true);
+    expect(matchesFilter(rec('harvest', '2027-04-01'), view, ctx)).toBe(false);
+    expect(matchesFilter(rec('harvest', '2026-03-31'), view, ctx)).toBe(false);
+  });
+});
+
+describe('viewIncludesUnapproved', () => {
+  it('is false for a view of approved records, which is the default', () => {
+    expect(viewIncludesUnapproved({ status: ['approved'] })).toBe(false);
+    expect(viewIncludesUnapproved({})).toBe(false);
+  });
+
+  it('is true when the view also looks at records that are not approved yet', () => {
+    expect(viewIncludesUnapproved({ status: ['approved', 'pending_review'] })).toBe(true);
+    expect(viewIncludesUnapproved({ status: ['draft'] })).toBe(true);
+  });
+
+  it('is false for rejected or voided records, which a report never shows anyway', () => {
+    expect(viewIncludesUnapproved({ status: ['approved', 'rejected'] })).toBe(false);
+    expect(viewIncludesUnapproved({ status: ['voided'] })).toBe(false);
+    expect(viewIncludesUnapproved({ status: ['rejected', 'draft'] })).toBe(true);
+  });
+
+  it('is true for each kind of record still being worked on', () => {
+    for (const status of ['draft', 'needs_info', 'pending_review']) expect(viewIncludesUnapproved({ status: [status] }), status).toBe(true);
+  });
+
+  it('is false for each of the default views', () => {
+    for (const view of DEFAULT_SAVED_VIEWS) expect(viewIncludesUnapproved(view.filter)).toBe(false);
   });
 });

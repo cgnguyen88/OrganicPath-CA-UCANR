@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
-import { DEFAULT_SAVED_VIEWS } from '../../domain/records/savedViews.js';
+import { DEFAULT_SAVED_VIEWS, parseViewFilter, viewIncludesUnapproved, viewPeriod } from '../../domain/records/savedViews.js';
 import { todayLocalIso } from '../../domain/records/seasons.js';
 import { listSavedViewRecords } from '../../lib/records.js';
+import { listSavedViewRecordsForReport } from '../../lib/reportData.js';
 import { recordsText, viewName } from './text.js';
 import * as ui from './ui.js';
+import ExportButton from './ExportButton.jsx';
 import RecordDetail from './RecordDetail.jsx';
 import RecordTable from './RecordTable.jsx';
 
 /** The records matching one saved view, e.g. "This season's sprays". */
-export default function SavedViewResults({ view, farm, role, userId, onChanged }) {
+export default function SavedViewResults({ view, farm, role, userId, operation, needsReviewCount, onChanged }) {
   const { lang: rawLang } = useLanguage();
   const lang = rawLang === 'es' ? 'es' : 'en';
   const tt = recordsText(lang);
@@ -40,9 +42,28 @@ export default function SavedViewResults({ view, farm, role, userId, onChanged }
     onChanged?.();
   };
 
+  const name = viewName(view, DEFAULT_SAVED_VIEWS, lang);
+  const names = { en: viewName(view, DEFAULT_SAVED_VIEWS, 'en'), es: viewName(view, DEFAULT_SAVED_VIEWS, 'es') };
+  const exportContext = { farm: { id: farmId, season_start_month: startMonth, season_start_day: startDay }, today: todayLocalIso() };
+  const loadForExport = () => listSavedViewRecordsForReport(view, exportContext);
+  const parsedFilter = parseViewFilter(view.filter); // a stored filter can be anything: no download for one that is not valid
+
   return (
     <div style={ui.page}>
-      <h1 style={{ ...ui.h1, marginBottom: 20 }}>{viewName(view, DEFAULT_SAVED_VIEWS, lang)}</h1>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
+        <h1 style={ui.h1}>{name}</h1>
+        {parsedFilter.ok && (
+          <ExportButton
+            title={names}
+            farm={farm}
+            operation={operation}
+            period={viewPeriod(parsedFilter.value, exportContext)}
+            includeUnapproved={viewIncludesUnapproved(parsedFilter.value)}
+            load={loadForExport}
+            needsReviewCount={needsReviewCount}
+          />
+        )}
+      </div>
       {loadError && <div role="alert" style={{ padding: '10px 14px', borderRadius: 8, background: '#fef2f2', color: '#b91c1c', fontSize: 13 }}>{tt.errors.load}</div>}
       {records && (records.length === 0
         ? <div style={{ ...ui.card, textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>{tt.views.empty}</div>

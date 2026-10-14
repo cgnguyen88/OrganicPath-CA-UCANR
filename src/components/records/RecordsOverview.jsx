@@ -27,6 +27,11 @@ export default function RecordsOverview({ farm, role, savedViews, needsReviewCou
       <MaterialCheck />
       <TelegramConnect />
 
+      <div style={{ ...ui.card, padding: '14px 18px', marginBottom: 22, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 14, color: '#334155' }}>{tt.reports.overviewHint}</span>
+        <button type="button" onClick={() => onNavigate(ROUTES.reports)} style={ui.buttonSecondary}>{tt.reports.overviewOpen}</button>
+      </div>
+
       {needsReviewCount > 0 && (
         <div style={{ ...ui.card, borderColor: '#fde68a', background: '#fffbeb', padding: '14px 18px', marginBottom: 22, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 14, color: '#92400e', fontWeight: 600 }}>{tt.overview.needsReview(needsReviewCount)}</span>

@@ -8,7 +8,11 @@ import { DEFAULT_SAVED_VIEWS } from '../../domain/records/savedViews.js';
 vi.mock('../../lib/records.js', () => ({
   listRecords: vi.fn(), listSavedViewRecords: vi.fn(), listRevisions: vi.fn(), createRecord: vi.fn(), updateRecord: vi.fn(), setRecordStatus: vi.fn(),
 }));
+vi.mock('../../lib/reportData.js', () => ({ listRecordsForReport: vi.fn(), listSavedViewRecordsForReport: vi.fn() }));
+vi.mock('../../lib/reportCsv.js', () => ({ downloadCsv: vi.fn() }));
+vi.mock('../../lib/reportDocx.js', () => ({ downloadReportDocx: vi.fn() }));
 const records = await import('../../lib/records.js');
+const reportData = await import('../../lib/reportData.js');
 const { default: RecordsPage } = await import('./RecordsPage.jsx');
 
 const FARM = { id: 'farm-1', name: 'Sunny', farm_code: 'F-ABC234', season_start_month: 4, season_start_day: 1 };
@@ -25,6 +29,9 @@ const setup = (route, props = {}, lang = 'en') => {
 
 beforeEach(() => {
   Object.values(records).forEach((fn) => fn.mockReset());
+  Object.values(reportData).forEach((fn) => fn.mockReset());
+  reportData.listRecordsForReport.mockResolvedValue({ data: { records: [purchase], truncated: false }, error: null });
+  reportData.listSavedViewRecordsForReport.mockResolvedValue({ data: { records: [purchase], truncated: false }, error: null });
   records.listRecords.mockResolvedValue({ data: [purchase, pendingPurchase], error: null });
   records.listSavedViewRecords.mockResolvedValue({ data: [purchase], error: null });
   records.listRevisions.mockResolvedValue({ data: [], error: null });
@@ -65,6 +72,81 @@ describe('RecordsPage: overview', () => {
     const { user, onNavigate } = setup({ type: 'overview' });
     await user.click(screen.getByRole('button', { name: 'Purchases without OMRI listing' }));
     expect(onNavigate).toHaveBeenCalledWith('view:view-0');
+  });
+});
+
+
+
+describe('RecordsPage: reports', () => {
+  it('opens the Reports page', () => {
+    setup({ type: 'reports' });
+    expect(screen.getByRole('heading', { level: 1, name: 'Reports' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Create report' })).toBeTruthy();
+  });
+
+  it('builds a report for the farm, with the operation’s details and the count of records waiting for review', async () => {
+    const { user } = setup({ type: 'reports' }, { operation: { operationName: 'Palo Verde Organics' }, needsReviewCount: 5 });
+    await user.click(screen.getByRole('button', { name: 'Create report' }));
+    expect(await screen.findByText('1 record in this report')).toBeTruthy();
+    expect(reportData.listRecordsForReport).toHaveBeenCalledWith(expect.objectContaining({ farmId: 'farm-1', includeUnapproved: false }));
+    expect(document.querySelector('.report-doc').textContent).toContain('Palo Verde Organics');
+    expect(screen.getByText('Your farm has 5 records waiting for review. Records waiting for review are not included in this report.')).toBeTruthy();
+  });
+
+  it('is offered from the Records home, for when something has to be handed to an inspector', async () => {
+    const { user, onNavigate } = setup({ type: 'overview' });
+    expect(screen.getByText('Need to give your records to an inspector or certifier?')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Open Reports' }));
+    expect(onNavigate).toHaveBeenCalledWith('recordReports');
+  });
+
+  it('hands the operation’s details and the review count down to a log’s download', async () => {
+    const { user } = setup({ type: 'log', kind: 'purchase' }, { operation: { operationName: 'Palo Verde Organics' }, needsReviewCount: 2 });
+    await user.click(await screen.findByRole('button', { name: 'Download' }));
+    expect(await screen.findByText('1 record in this report')).toBeTruthy();
+    expect(document.querySelector('.report-doc').textContent).toContain('Palo Verde Organics');
+    expect(screen.getByText('Your farm has 2 records waiting for review. Records waiting for review are not included in this report.')).toBeTruthy();
+  });
+
+  it('uses the operation’s details only for the owner, whose profile they are: a manager’s report names the farm', async () => {
+    for (const role of ['manager', 'crew']) {
+      const { user } = setup({ type: 'log', kind: 'purchase' }, { role, operation: { operationName: 'Palo Verde Organics', ownerName: 'Cuong Nguyen', certifierName: 'CCOF' } });
+      await user.click(await screen.findByRole('button', { name: 'Download' }));
+      await screen.findByText('1 record in this report');
+      const report = document.querySelector('.report-doc').textContent;
+      expect(report, role).toContain('Sunny');
+      expect(report, role).not.toContain('Palo Verde Organics');
+      expect(report, role).not.toContain('Cuong Nguyen');
+      expect(report, role).not.toContain('CCOF');
+      cleanup();
+    }
+  });
+
+  it('applies the same rule on the Reports page itself', async () => {
+    const { user } = setup({ type: 'reports' }, { role: 'manager', operation: { operationName: 'Palo Verde Organics', certifierName: 'CCOF' } });
+    await user.click(screen.getByRole('button', { name: 'Create report' }));
+    await screen.findByText('1 record in this report');
+    const report = document.querySelector('.report-doc').textContent;
+    expect(report).toContain('Sunny');
+    expect(report).not.toContain('Palo Verde Organics');
+    expect(report).not.toContain('CCOF');
+  });
+
+  it('uses them for the owner', async () => {
+    const { user } = setup({ type: 'reports' }, { role: 'owner', operation: { operationName: 'Palo Verde Organics', certifierName: 'CCOF' } });
+    await user.click(screen.getByRole('button', { name: 'Create report' }));
+    await screen.findByText('1 record in this report');
+    const report = document.querySelector('.report-doc').textContent;
+    expect(report).toContain('Palo Verde Organics');
+    expect(report).toContain('CCOF');
+  });
+
+  it('hands them down to a saved view’s download too', async () => {
+    const { user } = setup({ type: 'view', viewId: 'view-1' }, { operation: { operationName: 'Palo Verde Organics' }, needsReviewCount: 2 });
+    await user.click(await screen.findByRole('button', { name: 'Download' }));
+    expect(await screen.findByText('1 record in this report')).toBeTruthy();
+    expect(document.querySelector('.report-doc').textContent).toContain('Palo Verde Organics');
+    expect(screen.getByText('Your farm has 2 records waiting for review. Records waiting for review are not included in this report.')).toBeTruthy();
   });
 });
 

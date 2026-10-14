@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ClipboardList, ClipboardCheck, History, Layers, ChevronDown, ChevronRight, Sprout, Pin } from 'lucide-react';
+import { ClipboardList, ClipboardCheck, FileText, History, Layers, ChevronDown, ChevronRight, Sprout, Pin } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { RECORD_KINDS, KIND_META } from '../../domain/records/kinds.js';
 import { DEFAULT_SAVED_VIEWS } from '../../domain/records/savedViews.js';
@@ -46,6 +46,7 @@ export default function RecordsNav({ activePage, onNavigate, needsReviewCount = 
         ))}
 
         <NavItem icon={History} label={tt.nav.history} active={activePage === ROUTES.history} onClick={() => onNavigate(ROUTES.history)} />
+        <NavItem icon={FileText} label={tt.nav.reports} active={activePage === ROUTES.reports} onClick={() => onNavigate(ROUTES.reports)} />
       </NavGroup>
 
       {pinned.length > 0 && (

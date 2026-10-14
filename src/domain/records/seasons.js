@@ -35,3 +35,42 @@ export function seasonRange(farm, today, offset = 0) {
 export function todayLocalIso(now = new Date()) {
   return `${pad(now.getFullYear(), 4)}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
+
+/**
+ * The day before a date. A season's `end` is exclusive (the first day of the next season), so this
+ * gives the last day that is actually in it.
+ * @param {string} isoDate YYYY-MM-DD
+ * @returns {string}
+ */
+export function previousDay(isoDate) {
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * The first and last day (both included) of a season, for headings and date filters.
+ * @param {{ season_start_month?: number, season_start_day?: number } | null | undefined} farm
+ * @param {string | Date} today
+ * @param {number} [offset] 0 = the season containing `today`, -1 = the one before it
+ * @returns {{ from: string, to: string }}
+ */
+export function seasonPeriod(farm, today, offset = 0) {
+  const range = seasonRange(farm, today, offset);
+  return { from: range.start, to: previousDay(range.end) };
+}
+
+/**
+ * The date `months` calendar months before another, on the same day of the month, or the last day of the
+ * month when that month is shorter (31 March less one month is 28 February, not 3 March).
+ * @param {string} isoDate YYYY-MM-DD
+ * @param {number} months
+ * @returns {string}
+ */
+export function monthsBefore(isoDate, months) {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  const index = year * 12 + (month - 1) - months;
+  const targetYear = Math.floor(index / 12);
+  const targetMonth = (index % 12) + 1;
+  return iso(targetYear, targetMonth, day);
+}

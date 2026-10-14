@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { evaluateRecord, recordFingerprint, summarizeRecord } from './schemas.js';
+import { evaluateRecord, recordFingerprint, summarizeRecord, isValidIsoDate, DATE_MIN, DATE_MAX } from './schemas.js';
 
 const ok = (kind, input) => evaluateRecord(kind, input);
 
@@ -48,6 +48,7 @@ describe('evaluateRecord: normalization', () => {
 
 describe('evaluateRecord: numbers are plain decimals', () => {
   const qty = (value) => evaluateRecord('harvest', { record_date: '2026-10-01', payload: { crop: 'a', field: 'b', quantity: value, unit: 'lb' } });
+
 
   it.each([['12', 12], ['12.5', 12.5], ['.5', 0.5], ['12,5', 12.5], [',5', 0.5], ['  7 ', 7], ['0', 0]])('accepts %j as %d (a comma works as a decimal point for Spanish keyboards)', (input, expected) => {
     expect(qty(input).value.payload.quantity).toBe(expected);
@@ -158,3 +159,18 @@ describe('summarizeRecord', () => {
     expect(s('purchase', {}, 'es')).toBe('Compra');
   });
 });
+
+describe('the dates a record may use', () => {
+  it('has first and last dates that are themselves valid, and one day beyond each that is not', () => {
+    expect(isValidIsoDate(DATE_MIN)).toBe(true);
+    expect(isValidIsoDate(DATE_MAX)).toBe(true);
+    expect(isValidIsoDate('1899-12-31')).toBe(false);
+    expect(isValidIsoDate('2101-01-01')).toBe(false);
+  });
+
+  it('refuses text that is not a real date', () => {
+    for (const bad of ['', '0026-05-01', '2026-13-01', '2026-02-30', '2026-5-1', 'tomorrow', null, undefined, 20260501]) expect(isValidIsoDate(bad), String(bad)).toBe(false);
+    expect(isValidIsoDate('2028-02-29')).toBe(true);
+  });
+});
+

@@ -7,18 +7,32 @@ import { renderWithLang } from './testUtils.jsx';
 vi.mock('../../lib/records.js', () => ({
   listRecords: vi.fn(), setRecordStatus: vi.fn(), listRevisions: vi.fn(), updateRecord: vi.fn(), createRecord: vi.fn(),
 }));
+vi.mock('../../lib/reportData.js', () => ({ listRecordsForReport: vi.fn() }));
+vi.mock('./CapturePanel.jsx', () => ({
+  default: ({ onChanged, onNavigate }) => (
+    <div data-testid="capture-panel">
+      <button type="button" onClick={() => onChanged?.()}>stub filed a record</button>
+      <button type="button" onClick={() => onNavigate?.('needsReview')}>stub open review</button>
+    </div>
+  ),
+}));
+vi.mock('../../lib/reportCsv.js', () => ({ downloadCsv: vi.fn() }));
+vi.mock('../../lib/reportDocx.js', () => ({ downloadReportDocx: vi.fn() }));
 const records = await import('../../lib/records.js');
+const reportData = await import('../../lib/reportData.js');
 const { default: RecordLog } = await import('./RecordLog.jsx');
 
 const FARM = { id: 'farm-1' };
 const purchase = { id: 'p1', kind: 'purchase', status: 'approved', record_date: '2026-10-01', source: 'manual', payload: { product: 'Compost', supplier: 'Acme' }, created_by: 'u1', missing_fields: [] };
 const harvest = { id: 'h1', kind: 'harvest', status: 'approved', record_date: '2026-09-01', source: 'manual', payload: { crop: 'Kale', quantity: 5, unit: 'lb' }, created_by: 'u1', missing_fields: [] };
 
-const ui = (kind) => <RecordLog kind={kind} farm={FARM} role="owner" userId="u1" onChanged={() => {}} />;
+const OPERATION = { operationName: 'Palo Verde Organics' };
+const ui = (kind, extra = {}) => <RecordLog kind={kind} farm={FARM} role="owner" userId="u1" operation={OPERATION} needsReviewCount={2} onChanged={() => {}} onNavigate={() => {}} {...extra} />;
 
 beforeEach(() => {
   Object.values(records).forEach((fn) => fn.mockReset());
   records.listRevisions.mockResolvedValue({ data: [], error: null });
+  reportData.listRecordsForReport.mockReset();
 });
 afterEach(cleanup);
 
@@ -72,4 +86,57 @@ describe('RecordLog', () => {
     expect(screen.queryByText('Compost · Acme')).toBeNull();
     expect(screen.getByText('Kale · 5 lb')).toBeTruthy();
   });
+
+  describe('downloading the log', () => {
+    const other = { ...purchase, id: 'p2', record_date: '2026-09-15', payload: { product: 'Kelp', supplier: 'Bobco' } };
+
+    it('offers a Download button, and gathers every record of that kind when it is used (not only what is on screen)', async () => {
+      records.listRecords.mockResolvedValue({ data: [purchase], error: null });
+      reportData.listRecordsForReport.mockResolvedValue({ data: { records: [purchase, other], truncated: false }, error: null });
+      const user = userEvent.setup();
+      renderWithLang(ui('purchase'));
+      await screen.findByText('Compost · Acme');
+      expect(reportData.listRecordsForReport).not.toHaveBeenCalled();
+
+      await user.click(screen.getByRole('button', { name: 'Download' }));
+      expect(await screen.findByRole('dialog', { name: 'Download: Purchases' })).toBeTruthy();
+      expect(await screen.findByText('2 records in this report')).toBeTruthy();
+      expect(reportData.listRecordsForReport).toHaveBeenCalledWith({ farmId: 'farm-1', kinds: ['purchase'], includeUnapproved: false });
+    });
+
+    it('puts the operation’s name on the report, and lets the person include records not yet approved', async () => {
+      reportData.listRecordsForReport.mockResolvedValue({ data: { records: [purchase], truncated: false }, error: null });
+      records.listRecords.mockResolvedValue({ data: [purchase], error: null });
+      const user = userEvent.setup();
+      renderWithLang(ui('purchase'));
+      await screen.findByText('Compost · Acme');
+      await user.click(screen.getByRole('button', { name: 'Download' }));
+      await screen.findByText('1 record in this report');
+      expect(document.querySelector('.report-doc').textContent).toContain('Palo Verde Organics');
+
+      await user.click(screen.getByLabelText(/Also include records not yet approved/));
+      await waitFor(() => expect(reportData.listRecordsForReport).toHaveBeenLastCalledWith({ farmId: 'farm-1', kinds: ['purchase'], includeUnapproved: true }));
+    });
+
+    it('mentions the records still waiting for review, which are not in the report', async () => {
+      reportData.listRecordsForReport.mockResolvedValue({ data: { records: [purchase], truncated: false }, error: null });
+      records.listRecords.mockResolvedValue({ data: [purchase], error: null });
+      const user = userEvent.setup();
+      renderWithLang(ui('purchase'));
+      await user.click(await screen.findByRole('button', { name: 'Download' }));
+      expect(await screen.findByText('Your farm has 2 records waiting for review. Records waiting for review are not included in this report.')).toBeTruthy();
+    });
+
+    it('is there even while the list is still loading or has failed to load', async () => {
+      records.listRecords.mockResolvedValue({ data: null, error: { code: 'unknown' } });
+      renderWithLang(ui('purchase'));
+      await screen.findByRole('alert');
+      expect(screen.getByRole('button', { name: 'Download' })).toBeTruthy();
+    });
+  });
 });
+
+
+
+
+

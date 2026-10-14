@@ -7,6 +7,9 @@ const MAX_NUMBER = 1e9;
 const DECIMAL = /^(?:\d+(?:[.,]\d+)?|[.,]\d+)$/;
 const MIN_YEAR = 1900;
 const MAX_YEAR = 2100;
+/** The first and last date a record, or a report, may use (for date pickers). */
+export const DATE_MIN = `${MIN_YEAR}-01-01`;
+export const DATE_MAX = `${MAX_YEAR}-12-31`;
 
 const blankToUndefined = (value) =>
   value === undefined || value === null || (typeof value === 'string' && value.trim() === '') ? undefined : value;
@@ -34,7 +37,8 @@ const PAYLOAD_SCHEMAS = Object.fromEntries(
   Object.entries(KIND_FIELDS).map(([kind, fields]) => [kind, z.object(Object.fromEntries(fields.map((f) => [f.key, fieldSchema(f)])))]),
 );
 
-const isValidIsoDate = (value) => {
+/** A real calendar date written YYYY-MM-DD, within a sensible range. */
+export const isValidIsoDate = (value) => {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const year = Number(value.slice(0, 4));
   if (year < MIN_YEAR || year > MAX_YEAR) return false;

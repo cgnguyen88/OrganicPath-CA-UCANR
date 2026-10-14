@@ -5,6 +5,7 @@ import ChangeHistory from './ChangeHistory.jsx';
 import NeedsReview from './NeedsReview.jsx';
 import RecordLog from './RecordLog.jsx';
 import RecordsOverview from './RecordsOverview.jsx';
+import ReportsPage from './ReportsPage.jsx';
 import SavedViewResults from './SavedViewResults.jsx';
 
 /**
@@ -12,7 +13,7 @@ import SavedViewResults from './SavedViewResults.jsx';
  * provisioning not finished, or the database not set up) it explains and offers a retry
  * instead of failing silently.
  */
-export default function RecordsPage({ route, farm, role, userId, savedViews = [], metaReady = true, needsReviewCount = 0, onNavigate, onChanged, onRetryFarm }) {
+export default function RecordsPage({ route, farm, role, userId, operation, savedViews = [], metaReady = true, needsReviewCount = 0, onNavigate, onChanged, onRetryFarm }) {
   const { lang } = useLanguage();
   const tt = recordsText(lang);
 
@@ -28,7 +29,10 @@ export default function RecordsPage({ route, farm, role, userId, savedViews = []
     );
   }
 
-  const shared = { farm, role, userId, onChanged };
+  // The operation's details (name, owner, certifier...) come from the signed-in person's own profile, so
+  // only the owner's are the farm's. For anyone else the report names the farm and nothing more.
+  const reportOperation = role === 'owner' ? operation : undefined;
+  const shared = { farm, role, userId, operation: reportOperation, needsReviewCount, onChanged, onNavigate };
   switch (route.type) {
     case 'review':
       return <NeedsReview {...shared} />;
@@ -36,6 +40,8 @@ export default function RecordsPage({ route, farm, role, userId, savedViews = []
       return <RecordLog key={route.kind} kind={route.kind} {...shared} />;
     case 'history':
       return <ChangeHistory farm={farm} />;
+    case 'reports':
+      return <ReportsPage farm={farm} operation={reportOperation} needsReviewCount={needsReviewCount} />;
     case 'view': {
       const view = savedViews.find((v) => v.id === route.viewId);
       if (view) return <SavedViewResults key={view.id} view={view} {...shared} />;
