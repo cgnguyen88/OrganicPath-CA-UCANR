@@ -10,21 +10,6 @@ const TABS = [
   { id: 'audit', icon: Archive, labelEn: '5-Year Audit Trail', labelEs: 'Registro de Auditoría de 5 Años', color: '#7c3aed' },
 ];
 
-const JIMMY_SYSTEM = `You are Jimmy, a California organic certification expert specializing in compliance recordkeeping and documentation for the USDA National Organic Program (NOP) and California State Organic Program (CASOP).
-
-You generate professional, detailed compliance records that meet:
-- USDA NOP 7 CFR Part 205 requirements
-- California CDFA/CDPH organic certification standards
-- 5-year recordkeeping mandates under the Organic Foods Production Act
-
-Always:
-- Use professional, formal language appropriate for official compliance documentation
-- Include specific dates, quantities, and measurable details
-- Reference applicable NOP regulations (§205.xxx) where relevant
-- Note when laboratory analysis or third-party verification is recommended
-- Flag any potential compliance concerns
-- Be practical and actionable`;
-
 async function streamClaude(prompt, onChunk, onError) {
   try {
     const res = await authedFetch('/api/claude', {
@@ -32,7 +17,7 @@ async function streamClaude(prompt, onChunk, onError) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         messages: [{ role: 'user', content: prompt }],
-        system: JIMMY_SYSTEM,
+        mode: 'record_generator',
         stream: true,
       }),
     });

@@ -2,22 +2,12 @@ import { authedFetch } from '../../lib/apiClient.js';
 import { useState } from 'react';
 import { AlertTriangle, FileEdit, Copy, CheckCheck, RefreshCw, Download } from 'lucide-react';
 
-const JIMMY_SYSTEM = `You are Jimmy, a California organic certification compliance expert with deep knowledge of NOP adverse action procedures under 7 CFR Part 205 Subpart E (§205.660–205.681).
-
-When drafting corrective action responses:
-- Use formal, professional language appropriate for regulatory correspondence
-- Structure responses according to NOP requirements for corrective action documentation
-- Reference specific NOP regulatory sections relevant to the finding
-- Be specific about corrective measures — vague responses get rejected
-- Include timeline commitments where appropriate
-- Flag documentation the grower should attach as evidence`;
-
-async function streamClaude(messages, system, onChunk, onError) {
+async function streamClaude(messages, assistant, onChunk, onError) {
   try {
     const res = await authedFetch('/api/claude', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages, system, stream: true }),
+      body: JSON.stringify({ messages, ...assistant, stream: true }),
     });
     if (!res.ok) throw new Error(`API ${res.status}`);
     const reader = res.body.getReader();
@@ -92,7 +82,7 @@ Be specific and regulatory-precise. Vague responses get rejected by certifiers. 
 
     await streamClaude(
       [{ role: 'user', content: prompt }],
-      JIMMY_SYSTEM,
+      { mode: 'action_response' },
       (chunk) => setResponseDraft(prev => prev + chunk),
       (err) => { setError(err); setGenerating(false); }
     );

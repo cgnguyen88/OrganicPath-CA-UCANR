@@ -83,6 +83,7 @@ export async function deleteReceipt(id) {
 
 /** Receipt files are private; viewers get a link that expires after this long. */
 export const RECEIPT_URL_TTL_SECONDS = 300;
+export const RECORD_URL_TTL_SECONDS = 300;
 
 const MAX_EXTENSION_LENGTH = 8;
 
@@ -117,6 +118,20 @@ export async function getReceiptFileUrl(path) {
   const { data, error } = await supabase.storage.from('receipts').createSignedUrl(path, RECEIPT_URL_TTL_SECONDS);
   if (error) {
     console.error('getReceiptFileUrl:', error);
+    return null;
+  }
+  return data?.signedUrl ?? null;
+}
+
+/**
+ * Short-lived signed URL for a record's source file (a photo or PDF the agent read), or null if
+ * it cannot be minted. Storage policies only let a farm's members sign their own farm's files.
+ */
+export async function getRecordFileUrl(path) {
+  if (!path) return null;
+  const { data, error } = await supabase.storage.from('record-files').createSignedUrl(path, RECORD_URL_TTL_SECONDS);
+  if (error) {
+    console.error('getRecordFileUrl:', error);
     return null;
   }
   return data?.signedUrl ?? null;

@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Leaf, Mail, Lock, User } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext.jsx';
 import t from '../data/translations.js';
 import { supabase } from '../lib/supabase.js';
 import { buildSignUpPayload, interpretSignUp, FARM_NAME_MAX } from '../lib/registration.js';
+import { captchaConfig, withCaptchaToken } from '../lib/captcha.js';
+import CaptchaWidget from './CaptchaWidget.jsx';
 
 function registrationError({ field, code }, lang) {
   if (field === 'farmName' && code === 'too_long') {
@@ -12,6 +14,22 @@ function registrationError({ field, code }, lang) {
       : `Farm name must be ${FARM_NAME_MAX} characters or fewer.`;
   }
   return lang === 'es' ? 'Todos los campos son obligatorios.' : 'All fields are required.';
+}
+
+const CAPTCHA_TEXT = {
+  en: { missing: 'Please complete the verification, then try again.', refused: (code) => `The verification was not accepted${code ? ` (${code})` : ''}. Please try again.` },
+  es: { missing: 'Completa la verificación e inténtalo de nuevo.', refused: (code) => `La verificación no fue aceptada${code ? ` (${code})` : ''}. Inténtalo de nuevo.` },
+};
+
+/**
+ * What to tell the person when Supabase refuses a CAPTCHA. A missing token is theirs to fix; a refused
+ * one carries the provider's reason code (for example "invalid-input-response" or "sitekey-secret-mismatch"),
+ * which is public information and tells the site owner what to check.
+ */
+function captchaMessage(rawMessage, lang) {
+  const text = CAPTCHA_TEXT[lang === 'es' ? 'es' : 'en'];
+  if (rawMessage.includes('no captcha_token')) return text.missing;
+  return text.refused(/\(([a-z0-9-]+)\)\s*$/i.exec(rawMessage)?.[1]);
 }
 
 export default function AuthScreen({ onLogin }) {
@@ -23,10 +41,21 @@ export default function AuthScreen({ onLogin }) {
   const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // CAPTCHA (optional): when configured, Supabase wants a fresh token with every sign-in and sign-up.
+  const captcha = useMemo(() => captchaConfig(), []);
+  const [captchaToken, setCaptchaToken] = useState(null);
+  const [captchaReset, setCaptchaReset] = useState(0);
+  const freshCaptcha = () => { setCaptchaToken(null); setCaptchaReset((n) => n + 1); };
+  const captchaMissing = Boolean(captcha) && !captchaToken;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setNotice('');
+    if (captchaMissing) {
+      setError(CAPTCHA_TEXT[lang === 'es' ? 'es' : 'en'].missing);
+      return;
+    }
     setLoading(true);
 
     try {
@@ -36,7 +65,7 @@ export default function AuthScreen({ onLogin }) {
           setError(registrationError(built, lang));
           return;
         }
-        const { data, error: signUpError } = await supabase.auth.signUp(built.payload);
+        const { data, error: signUpError } = await supabase.auth.signUp({ ...built.payload, options: withCaptchaToken(built.payload.options, captchaToken) });
         if (signUpError) throw signUpError;
         const outcome = interpretSignUp(data);
         if (outcome.kind === 'confirm-email') {
@@ -55,6 +84,7 @@ export default function AuthScreen({ onLogin }) {
         const { data, error: signInError } = await supabase.auth.signInWithPassword({
           email: form.email,
           password: form.password,
+          ...(captchaToken ? { options: { captchaToken } } : {}),
         });
         if (signInError) throw signInError;
         const name = data.user.user_metadata?.name || data.user.email.split('@')[0];
@@ -62,7 +92,9 @@ export default function AuthScreen({ onLogin }) {
       }
     } catch (err) {
       const msg = err.message || 'Something went wrong. Please try again.';
-      if (msg.includes('Failed to fetch') || msg.includes('fetch')) {
+      if (msg.toLowerCase().includes('captcha')) {
+        setError(captchaMessage(msg, lang));
+      } else if (msg.includes('Failed to fetch') || msg.includes('fetch')) {
         setError('Cannot connect to the server. If you are the site owner, please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your Vercel environment variables and redeploy.');
       } else if (msg.includes('already registered')) {
         setError('An account with this email already exists.');
@@ -75,6 +107,7 @@ export default function AuthScreen({ onLogin }) {
       }
     } finally {
       setLoading(false);
+      if (captcha) freshCaptcha(); // a token works once
     }
   };
 
@@ -191,13 +224,15 @@ export default function AuthScreen({ onLogin }) {
               </div>
             </div>
 
+            <CaptchaWidget config={captcha} lang={lang} resetKey={captchaReset} onToken={setCaptchaToken} onExpire={() => setCaptchaToken(null)} />
+
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || captchaMissing}
               style={{
-                background: loading ? '#94a3b8' : 'var(--u-navy)', color: 'white',
+                background: loading || captchaMissing ? '#94a3b8' : 'var(--u-navy)', color: 'white',
                 border: 'none', borderRadius: 8, padding: '13px',
-                fontSize: 15, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer',
+                fontSize: 15, fontWeight: 600, cursor: loading || captchaMissing ? 'not-allowed' : 'pointer',
                 transition: 'background 0.2s', marginTop: 8,
               }}
               onMouseEnter={e => { if (!loading) e.currentTarget.style.background = 'var(--u-navy-l)'; }}
@@ -210,7 +245,7 @@ export default function AuthScreen({ onLogin }) {
           <p style={{ textAlign: 'center', fontSize: 14, color: '#666', marginTop: 24 }}>
             {mode === 'login' ? tx.noAccount : tx.hasAccount}{' '}
             <button
-              onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}
+              onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); if (captcha) freshCaptcha(); }}
               style={{ color: 'var(--u-sky)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 14 }}
             >
               {mode === 'login' ? tx.signUp : tx.signIn}

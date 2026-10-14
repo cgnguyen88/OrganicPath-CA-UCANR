@@ -1,4 +1,5 @@
 import { authedFetch } from '../lib/apiClient.js';
+import { operationContext } from '../lib/operationContext.js';
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Sparkles, CheckCircle, ChevronDown, Pencil } from 'lucide-react';
@@ -11,12 +12,12 @@ import { debouncedSync } from '../lib/db.js';
 
 const STEP_COLORS = ['#3AA8E4', '#FDBD10', '#1B6B2E', '#005FAE', '#7c3aed', '#bd8e00', '#002D54'];
 
-async function streamClaude(messages, onChunk, system) {
+async function streamClaude(messages, onChunk, assistant) {
   try {
     const res = await authedFetch('/api/claude', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages, system, stream: true }),
+      body: JSON.stringify({ messages, ...assistant, stream: true }),
     });
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     const reader = res.body.getReader();
@@ -119,10 +120,6 @@ export default function CertificationWizard({ profile, onUpdateProfile, onNaviga
     setIsGenerating(true);
     aiTextRef.current = '';
 
-    const sysPrompt = `You are Jimmy, a California organic certification expert. The user is completing their Organic System Plan. Based on their operation, provide a practical, concise suggestion in ${lang === 'es' ? 'Spanish' : 'English'}.
-
-Operation: ${formData.operationName || 'Unknown'}, Type: ${formData.operationType || 'crop'}, Crops/Products: ${formData.crops || 'various'}, County: ${formData.county || 'California'}`;
-
     const prompts = {
       practices: `Suggest 3-4 specific organic production practices appropriate for this operation. Be practical and specific to California conditions.`,
       inputs: `Suggest a list of USDA NOP-compliant inputs and materials appropriate for this operation (fertilizers, pest management, etc). Note any OMRI-listed products.`,
@@ -140,7 +137,7 @@ Operation: ${formData.operationName || 'Unknown'}, Type: ${formData.operationTyp
         // Update textarea in real-time so user sees streaming output
         setFormData(prev => ({ ...prev, [field]: aiTextRef.current }));
       },
-      sysPrompt
+      { mode: 'wizard_suggest', lang, context: operationContext(formData) }
     );
 
     // Persist final value and sync to operation_data so OSP Generator

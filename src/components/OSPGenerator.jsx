@@ -1,4 +1,5 @@
 import { authedFetch } from '../lib/apiClient.js';
+import { operationContext } from '../lib/operationContext.js';
 import { renderOspInline } from '../utils/safeMarkdown.js';
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -47,11 +48,11 @@ function fmtSz(b) { return b < 1048576 ? `${(b / 1024).toFixed(1)} KB` : `${(b /
 
 // ─── AI helpers ───────────────────────────────────────────────────────────────
 
-async function streamClaude(messages, onChunk, system) {
+async function streamClaude(messages, onChunk, assistant) {
   const res = await authedFetch('/api/claude', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, system, stream: true }),
+    body: JSON.stringify({ messages, ...assistant, stream: true }),
   });
   if (!res.ok) throw new Error(`API ${res.status}`);
   const reader = res.body.getReader();
@@ -71,11 +72,11 @@ async function streamClaude(messages, onChunk, system) {
   }
 }
 
-async function callClaude(messages, system) {
+async function callClaude(messages, assistant) {
   const res = await authedFetch('/api/claude', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, system, stream: false }),
+    body: JSON.stringify({ messages, ...assistant, stream: false }),
   });
   if (!res.ok) throw new Error(`API ${res.status}`);
   const data = await res.json();
@@ -840,8 +841,6 @@ export default function OSPGenerator({ profile, onUpdateProfile, onNavigate, use
     if (isAIField) return;
     setIsAIField(true);
     aiRef.current = '';
-    const system = `You are a California organic certification expert. The user is completing their Organic System Plan. Provide practical, specific, submission-ready content in ${lang === 'es' ? 'Spanish' : 'English'}.
-Operation: ${formData.operationName || 'Unknown'}, Type: ${formData.operationType || 'crop'}, Crops: ${formData.crops || 'various'}, County: ${formData.county || 'California'}`;
     setFormData(prev => ({ ...prev, [fieldKey]: '' }));
     try {
       await streamClaude(
@@ -850,7 +849,7 @@ Operation: ${formData.operationName || 'Unknown'}, Type: ${formData.operationTyp
           aiRef.current += chunk;
           setFormData(prev => ({ ...prev, [fieldKey]: aiRef.current }));
         },
-        system
+        { mode: 'osp_field', lang, context: operationContext(formData) }
       );
       const final = aiRef.current;
       setFormData(prev => {
@@ -868,8 +867,6 @@ Operation: ${formData.operationName || 'Unknown'}, Type: ${formData.operationTyp
     setGenError('');
     setGeneratedOSP('');
     try {
-      const system = `You are an expert organic certification consultant. Generate a complete, professional, submission-ready Organic System Plan (OSP) for a California operation. Write in first-person voice. Be specific — vague language triggers inspector follow-up. Include NOP section citations. Mark missing data as [NEEDS OPERATOR INPUT: description]. Respond in ${lang === 'es' ? 'Spanish' : 'English'}.`;
-
       let userContent;
       if (customFile) {
         const textInstr = `Fill out this certifier's OSP template completely using the operator profile data below.\n\n${JSON.stringify(formData, null, 2)}`;
@@ -897,7 +894,7 @@ ${JSON.stringify(formData, null, 2)}
 Use markdown: ## for section headings, **bold** for field labels, bullet lists for items. Write complete, submission-ready content for every section.`;
       }
 
-      const text = await callClaude([{ role: 'user', content: userContent }], system);
+      const text = await callClaude([{ role: 'user', content: userContent }], { mode: 'osp_generate', lang });
       setGeneratedOSP(text);
     } catch (err) {
       setGenError('Could not generate OSP. Check your connection and try again.');

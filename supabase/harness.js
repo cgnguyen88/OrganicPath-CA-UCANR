@@ -17,6 +17,7 @@ export const migrationSql = () =>
 const ROLES = `
   create role anon nologin;
   create role authenticated nologin;
+  create role service_role nologin bypassrls;
 `;
 
 // Older Supabase projects hand every new public table to anon/authenticated. A brand-new
@@ -114,6 +115,15 @@ export async function asUser(db, userId, fn) {
     return await fn();
   } finally {
     await db.exec(`reset role; select set_config('request.jwt.claim.sub', '', false);`);
+  }
+}
+
+export async function asServiceRole(db, fn) {
+  await db.exec(`select set_config('request.jwt.claim.sub', '', false); set role service_role;`);
+  try {
+    return await fn();
+  } finally {
+    await db.exec('reset role;');
   }
 }
 

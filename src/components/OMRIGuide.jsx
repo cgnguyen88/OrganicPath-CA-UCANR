@@ -170,7 +170,7 @@ VERIFICATION STEP: One specific instruction for how to confirm status at omri.or
 
 Be precise and regulation-specific. If the material name is generic (multiple formulations exist), note that clearly. Do not give false confidence — if uncertain, say so.`,
       }],
-      system: `You are an expert on OMRI (Organic Materials Review Institute) listing criteria and USDA NOP National List compliance (7 CFR Part 205). You have comprehensive knowledge of allowed and prohibited substances under §205.601–606, seed requirements under §205.204, and soil/compost requirements under §205.203. Always remind users to verify at omri.org for official confirmation, as your knowledge may not reflect the current OMRI database state.`,
+      mode: 'omri_guide',
       stream: false,
     }),
   });

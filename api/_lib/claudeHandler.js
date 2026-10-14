@@ -1,81 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { validateClaudeRequest } from './validateRequest.js';
-
-const ALLOWED_METHODS = 'POST, OPTIONS';
-const BEARER_PATTERN = /^Bearer\s+(\S+)$/i;
-const MAX_TOKEN_LENGTH = 4096;
-const SECRET_PATTERN = /sk-ant-[A-Za-z0-9_-]+/g;
-const MAX_LOGGED_MESSAGE_CHARS = 200;
-
-/** @param {string} text */
-const redact = (text) =>
-  String(text)
-    .replace(SECRET_PATTERN, '[redacted]')
-    .replace(/[\r\n\t]+/g, ' ') // upstream text must not be able to forge log lines
-    .slice(0, MAX_LOGGED_MESSAGE_CHARS);
-
-/**
- * @param {import('node:http').ServerResponse} res
- * @param {number} status
- * @param {unknown} body
- */
-function sendJson(res, status, body) {
-  res.statusCode = status;
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.end(JSON.stringify(body));
-}
-
-/**
- * Grant CORS only to explicitly allowlisted origins. Same-origin calls (the
- * normal case: the SPA and /api share a host) need no CORS headers at all.
- */
-function applyCors(req, res, allowedOrigins) {
-  const origin = req.headers.origin;
-  if (!origin || !allowedOrigins.includes(origin)) return;
-  res.setHeader('Access-Control-Allow-Origin', origin);
-  res.setHeader('Vary', 'Origin');
-  res.setHeader('Access-Control-Allow-Methods', ALLOWED_METHODS);
-  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-  res.setHeader('Access-Control-Max-Age', '600');
-}
-
-/** @returns {string | null} */
-function extractBearerToken(req) {
-  const match = BEARER_PATTERN.exec(req.headers.authorization ?? '');
-  return match && match[1].length <= MAX_TOKEN_LENGTH ? match[1] : null;
-}
-
-/**
- * Translate an upstream failure into a client-safe status and message. Upstream
- * error text is never forwarded: it can carry operational detail.
- *
- * @param {unknown} err
- * @returns {{ status: number, message: string, retryAfter?: string }}
- */
-function describeUpstreamError(err) {
-  if (err instanceof Anthropic.APIConnectionTimeoutError) {
-    return { status: 504, message: 'The AI service took too long to respond. Please try again.' };
-  }
-  if (err instanceof Anthropic.APIError && typeof err.status === 'number') {
-    switch (err.status) {
-      case 429:
-        return {
-          status: 429,
-          message: 'The AI service is busy. Please try again shortly.',
-          retryAfter: err.headers?.get?.('retry-after') ?? undefined,
-        };
-      case 529:
-        return { status: 503, message: 'The AI service is temporarily overloaded. Please try again.' };
-      case 400:
-        return { status: 400, message: 'The AI request was rejected. It may be too long or malformed.' };
-      case 413:
-        return { status: 413, message: 'The request is too large.' };
-      default:
-        break;
-    }
-  }
-  return { status: 502, message: 'The AI service returned an error. Please try again.' };
-}
+import { describeUpstreamError, guardRequest, redact, sendJson } from './httpUtils.js';
 
 /**
  * Create the /api/claude request handler. It runs unchanged on Vercel
@@ -91,60 +16,18 @@ function describeUpstreamError(err) {
  *   getAnthropic: () => Anthropic | null,
  *   minuteLimiter: ReturnType<import('./rateLimiter.js').createRateLimiter>,
  *   dayLimiter: ReturnType<import('./rateLimiter.js').createRateLimiter>,
+ *   globalLimiter?: { check: Function },
  *   logger?: { error: Function, warn: Function, info: Function },
  * }} deps
  * @returns {(req: import('node:http').IncomingMessage & { body?: unknown }, res: import('node:http').ServerResponse) => Promise<void>}
  */
-export function createClaudeHandler({ config, verifyToken, getAnthropic, minuteLimiter, dayLimiter, logger = console }) {
+export function createClaudeHandler({ config, verifyToken, getAnthropic, minuteLimiter, dayLimiter, globalLimiter, logger = console }) {
   return async function handleClaudeRequest(req, res) {
-    applyCors(req, res, config.allowedOrigins);
-    res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-
-    if (req.method === 'OPTIONS') {
-      res.statusCode = 204;
-      res.end();
-      return;
-    }
-    if (req.method !== 'POST') {
-      res.setHeader('Allow', ALLOWED_METHODS);
-      sendJson(res, 405, { error: 'Method not allowed.' });
-      return;
-    }
-
-    // ── Authentication ──────────────────────────────────────────────────────
-    const token = extractBearerToken(req);
-    if (!token) {
-      res.setHeader('WWW-Authenticate', 'Bearer');
-      sendJson(res, 401, { error: 'Authentication required.' });
-      return;
-    }
-
-    let user;
-    try {
-      user = await verifyToken(token);
-    } catch (err) {
-      logger.error('[claude-proxy] token verification unavailable', { reason: redact(err?.message ?? err) });
-      sendJson(res, 503, { error: 'Authentication service unavailable. Please try again.' });
-      return;
-    }
-    if (!user?.id) {
-      res.setHeader('WWW-Authenticate', 'Bearer error="invalid_token"');
-      sendJson(res, 401, { error: 'Invalid or expired session. Please sign in again.' });
-      return;
-    }
-
-    // ── Rate limit (counts invalid requests too) ────────────────────────────
-    // Daily quota is only spent on requests the minute limiter let through, so a
-    // client that keeps retrying a 429 cannot burn (or be locked out of) its day.
-    const minuteVerdict = minuteLimiter.check(user.id);
-    const verdicts = minuteVerdict.allowed ? [minuteVerdict, dayLimiter.check(user.id)] : [minuteVerdict];
-    const blocked = verdicts.filter((v) => !v.allowed);
-    if (blocked.length > 0) {
-      res.setHeader('Retry-After', String(Math.max(...blocked.map((v) => v.retryAfterSec))));
-      sendJson(res, 429, { error: 'Too many requests. Please slow down and try again shortly.' });
-      return;
-    }
+    const session = await guardRequest(req, res, {
+      allowedOrigins: config.allowedOrigins, verifyToken, minuteLimiter, dayLimiter, globalLimiter, logger, tag: 'claude-proxy',
+    });
+    if (!session) return;
+    const { user } = session;
 
     // ── Validation ──────────────────────────────────────────────────────────
     const validation = validateClaudeRequest(req.body, config.limits);

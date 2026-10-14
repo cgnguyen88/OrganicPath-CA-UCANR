@@ -3,13 +3,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const storage = { upload: vi.fn(), createSignedUrl: vi.fn(), getPublicUrl: vi.fn(), remove: vi.fn() };
 const rpc = vi.fn();
 const from = vi.fn();
+const bucketsUsed = [];
 vi.mock('./supabase.js', () => ({
-  supabase: { storage: { from: () => storage }, rpc: (...args) => rpc(...args), from: (...args) => from(...args) },
+  supabase: { storage: { from: (bucket) => { bucketsUsed.push(bucket); return storage; } }, rpc: (...args) => rpc(...args), from: (...args) => from(...args) },
 }));
 
-const { uploadReceiptFile, getReceiptFileUrl, addReceipt, deleteReceipt, deleteReceiptFile, ensureMyFarm, getFarm, RECEIPT_URL_TTL_SECONDS } = await import('./db.js');
+const { uploadReceiptFile, getReceiptFileUrl, getRecordFileUrl, RECORD_URL_TTL_SECONDS, addReceipt, deleteReceipt, deleteReceiptFile, ensureMyFarm, getFarm, RECEIPT_URL_TTL_SECONDS } = await import('./db.js');
 
 beforeEach(() => {
+  bucketsUsed.length = 0;
   Object.values(storage).forEach((fn) => fn.mockReset());
   rpc.mockReset();
   from.mockReset();
@@ -66,6 +68,27 @@ describe('getReceiptFileUrl', () => {
   it('returns null and logs when signing fails', async () => {
     storage.createSignedUrl.mockResolvedValue({ data: null, error: { message: 'denied' } });
     await expect(getReceiptFileUrl('user-1/a.png')).resolves.toBeNull();
+    expect(console.error).toHaveBeenCalled();
+  });
+});
+
+describe('getRecordFileUrl', () => {
+  it('mints a short-lived signed URL from the private record-files bucket', async () => {
+    storage.createSignedUrl.mockResolvedValue({ data: { signedUrl: 'https://signed-record' }, error: null });
+    await expect(getRecordFileUrl('farm/hash/0.jpg')).resolves.toBe('https://signed-record');
+    expect(bucketsUsed).toEqual(['record-files']);
+    expect(storage.createSignedUrl).toHaveBeenCalledWith('farm/hash/0.jpg', RECORD_URL_TTL_SECONDS);
+    expect(RECORD_URL_TTL_SECONDS).toBeLessThanOrEqual(900);
+  });
+
+  it('returns null without calling storage when there is no path', async () => {
+    await expect(getRecordFileUrl('')).resolves.toBeNull();
+    expect(storage.createSignedUrl).not.toHaveBeenCalled();
+  });
+
+  it('returns null and logs when signing fails (for example the file belongs to another farm)', async () => {
+    storage.createSignedUrl.mockResolvedValue({ data: null, error: { message: 'Object not found' } });
+    await expect(getRecordFileUrl('other/hash/0.jpg')).resolves.toBeNull();
     expect(console.error).toHaveBeenCalled();
   });
 });

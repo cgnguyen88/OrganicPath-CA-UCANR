@@ -85,22 +85,11 @@ const CHECKLIST_ITEMS = [
   },
 ];
 
-const JIMMY_SYSTEM = `You are Jimmy, a California organic certification financial assistance expert. You specialize in the USDA Organic Certified Cost Share Program (OCCSP) and help farmers maximize their reimbursements.
-
-Key facts:
-- OCCSP reimburses up to 75% of certification costs, up to $750 per certification per year
-- Funded through USDA Agricultural Marketing Service (AMS) Farm Bill funds
-- California administered by CDFA Organic Program: CDFA_Organic@cdfa.ca.gov, (916) 900-5201
-- First-come, first-served basis each fiscal year
-- Required documents: organic certificate copy, expense invoices, STD 204 form, application form
-- Eligible costs: application fees, renewal fees, inspection fees
-- NOT eligible: travel expenses, consulting fees, non-certification fees`;
-
-async function streamClaude(messages, system, onChunk, onError) {
+async function streamClaude(messages, assistant, onChunk, onError) {
   try {
     const res = await authedFetch('/api/claude', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages, system, stream: true }),
+      body: JSON.stringify({ messages, ...assistant, stream: true }),
     });
     if (!res.ok) throw new Error(`API ${res.status}`);
     const reader = res.body.getReader();
@@ -232,7 +221,7 @@ Be specific and helpful. Format clearly with headers.${lang === 'es' ? '\n\nResp
 
     await streamClaude(
       [{ role: 'user', content: prompt }],
-      JIMMY_SYSTEM + (lang === 'es' ? '\n\nRespond in Spanish.' : ''),
+      { mode: 'occsp', lang },
       (chunk) => { aiRef.current += chunk; setAiOutput(aiRef.current); },
       (err) => setAiOutput(`[Error: ${err}]`)
     );

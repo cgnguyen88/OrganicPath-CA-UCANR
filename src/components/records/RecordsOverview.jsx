@@ -6,6 +6,9 @@ import { ROUTES, logRoute, viewRoute } from '../../lib/recordsRoute.js';
 import { recordsText, viewName } from './text.js';
 import { KIND_ICONS } from './icons.js';
 import * as ui from './ui.js';
+import CapturePanel from './CapturePanel.jsx';
+import MaterialCheck from './MaterialCheck.jsx';
+import TelegramConnect from './TelegramConnect.jsx';
 import RecordForm from './RecordForm.jsx';
 
 /** The records home: what needs review, start a record of any kind, and the saved views. */
@@ -19,6 +22,10 @@ export default function RecordsOverview({ farm, role, savedViews, needsReviewCou
     <div style={ui.page}>
       <h1 style={ui.h1}>{tt.overview.title}</h1>
       <p style={{ ...ui.subtitle, marginBottom: 22 }}>{tt.overview.subtitle}</p>
+
+      <CapturePanel onChanged={onChanged} onNavigate={onNavigate} />
+      <MaterialCheck />
+      <TelegramConnect />
 
       {needsReviewCount > 0 && (
         <div style={{ ...ui.card, borderColor: '#fde68a', background: '#fffbeb', padding: '14px 18px', marginBottom: 22, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>

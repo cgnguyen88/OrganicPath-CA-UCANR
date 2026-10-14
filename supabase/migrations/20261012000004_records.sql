@@ -185,7 +185,13 @@ begin
       when new.status is distinct from old.status then 'status:' || new.status
       else 'edited'
     end,
-    (select auth.uid()),
+    -- A server-side write (the agent, service role) has no signed-in caller. An insert credits its named
+    -- author; an update made on someone's behalf (channel_update_record) names them in app.actor.
+    coalesce(
+      (select auth.uid()),
+      nullif(current_setting('app.actor', true), '')::uuid,
+      case when tg_op = 'INSERT' then new.created_by end
+    ),
     case when tg_op = 'UPDATE' then to_jsonb(old) end,
     to_jsonb(new)
   );

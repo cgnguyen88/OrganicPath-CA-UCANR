@@ -1,11 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { createClaudeHandler } from './claudeHandler.js';
 import { loadConfig, resolveAnthropicKey } from './config.js';
-import { createRateLimiter } from './rateLimiter.js';
 import { createSupabaseTokenVerifier } from './auth.js';
-
-const ONE_MINUTE_MS = 60_000;
-const ONE_DAY_MS = 86_400_000;
+import { createLimiterSet } from './limiters.js';
+import { createAgentStore } from './agent/supabaseStore.js';
 
 /**
  * Wire the /api/claude handler from environment variables. Call this after the
@@ -20,13 +18,21 @@ export function createDefaultHandler(env = process.env, logger = console) {
   if (warning) logger.warn(`[claude-proxy] ${warning}`);
 
   const anthropic = key ? new Anthropic({ apiKey: key }) : null;
+  const limiters = createLimiterSet({
+    rate: config.rate,
+    prefix: 'claude',
+    store: createAgentStore(env),
+    // Shared counts need the server role; without it limits are per serverless instance.
+    shared: Boolean(env.SUPABASE_SERVICE_ROLE_KEY && (env.SUPABASE_URL || env.VITE_SUPABASE_URL)),
+    logger,
+  });
 
   return createClaudeHandler({
     config,
     verifyToken: createSupabaseTokenVerifier(env),
     getAnthropic: () => anthropic,
-    minuteLimiter: createRateLimiter({ max: config.rate.perMinute, windowMs: ONE_MINUTE_MS }),
-    dayLimiter: createRateLimiter({ max: config.rate.perDay, windowMs: ONE_DAY_MS }),
+    ...limiters.forEndpoint('proxy'),
+    globalLimiter: limiters.global,
     logger,
   });
 }

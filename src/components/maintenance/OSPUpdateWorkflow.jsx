@@ -2,16 +2,12 @@ import { authedFetch } from '../../lib/apiClient.js';
 import { useState } from 'react';
 import { RefreshCw, Download, Sparkles, Copy, CheckCheck } from 'lucide-react';
 
-const JIMMY_SYSTEM = `You are Jimmy, a California organic certification compliance expert specializing in NOP documentation.
-Generate a formal, professional Annual OSP Update document aligned with NOP §205.406 (continuation of certification).
-Use precise regulatory language, cite specific NOP sections where relevant, and format the output as a clean document a certifier can review directly.`;
-
-async function streamClaude(messages, system, onChunk, onError) {
+async function streamClaude(messages, assistant, onChunk, onError) {
   try {
     const res = await authedFetch('/api/claude', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages, system, stream: true }),
+      body: JSON.stringify({ messages, ...assistant, stream: true }),
     });
     if (!res.ok) throw new Error(`API ${res.status}`);
     const reader = res.body.getReader();
@@ -89,7 +85,7 @@ Be formal and precise. Reference specific NOP sections. This document goes direc
 
     await streamClaude(
       [{ role: 'user', content: prompt }],
-      JIMMY_SYSTEM,
+      { mode: 'osp_update' },
       (chunk) => setOutput(prev => prev + chunk),
       (err) => { setError(err); setLoading(false); }
     );

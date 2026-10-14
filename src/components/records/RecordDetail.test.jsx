@@ -5,6 +5,8 @@ import userEvent from '@testing-library/user-event';
 import { renderWithLang } from './testUtils.jsx';
 
 vi.mock('../../lib/records.js', () => ({ listRevisions: vi.fn(), setRecordStatus: vi.fn(), updateRecord: vi.fn(), createRecord: vi.fn() }));
+vi.mock('../../lib/db.js', () => ({ getRecordFileUrl: vi.fn() }));
+const db = await import('../../lib/db.js');
 const records = await import('../../lib/records.js');
 const { default: RecordDetail } = await import('./RecordDetail.jsx');
 
@@ -25,7 +27,7 @@ beforeEach(() => {
     { id: 2, version: 2, change_type: 'status:approved', changed_at: '2026-10-02T09:00:00Z', changed_by: 'owner-1' },
   ], error: null });
 });
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('RecordDetail: content', () => {
   it('shows the record’s fields with localized labels and option values', async () => {
@@ -169,5 +171,39 @@ describe('RecordDetail: acting', () => {
     await user.type(screen.getByLabelText(/^Product/), 'Spinosad');
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
     await waitFor(() => expect(onChanged).toHaveBeenCalledWith(expect.objectContaining({ id: 'r1' })));
+  });
+});
+
+describe('RecordDetail: source files', () => {
+  const withFiles = { ...base, attachments: [{ path: 'farm-1/h/0.jpg', media_type: 'image/jpeg', bytes: 10 }, { path: 'farm-1/h/1.pdf', media_type: 'application/pdf', bytes: 20 }] };
+
+  it('shows nothing for a record with no stored files', () => {
+    setup(base);
+    expect(screen.queryByText('Source file')).toBeNull();
+  });
+
+  it('opens a stored file through a freshly signed link', async () => {
+    db.getRecordFileUrl.mockResolvedValue('https://signed/1');
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const { user } = setup(withFiles);
+    expect(screen.getByText('Source file')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'View file 2' }));
+    expect(db.getRecordFileUrl).toHaveBeenCalledWith('farm-1/h/1.pdf');
+    expect(open).toHaveBeenCalledWith('https://signed/1', '_blank', 'noopener,noreferrer');
+  });
+
+  it('says so when the link cannot be made, and opens nothing', async () => {
+    db.getRecordFileUrl.mockResolvedValue(null);
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const { user } = setup(withFiles);
+    await user.click(screen.getByRole('button', { name: 'View file 1' }));
+    expect((await screen.findByRole('alert')).textContent).toMatch(/Could not open the file/);
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('is available in Spanish', () => {
+    setup(withFiles, {}, 'es');
+    expect(screen.getByText('Archivo de origen')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Ver archivo 1' })).toBeTruthy();
   });
 });

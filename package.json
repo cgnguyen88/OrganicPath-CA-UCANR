@@ -11,7 +11,11 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "eval:agent": "node api/_lib/agent/evals/run.js",
+    "ingest:regulations": "node api/_lib/regulations/ingest.js",
+    "telegram:webhook": "node api/_lib/channels/setWebhook.js",
+    "telegram:poll": "node api/_lib/channels/poll.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",

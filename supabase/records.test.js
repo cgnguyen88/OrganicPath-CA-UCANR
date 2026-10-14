@@ -286,6 +286,16 @@ describe('records', () => {
       expect(rows[2].after.status).toBe('approved');
     });
 
+    it('attributes a server-side (service role) insert to the author it names, since there is no signed-in caller', async () => {
+      const { rows } = await db.query(
+        `insert into public.records (farm_id, kind, status, payload, created_by, source, source_ref)
+         values ($1, 'note', 'pending_review', '{"text":"captured"}', $2, 'web_upload', 'cap-attr#0') returning id`,
+        [t.farm, t.crew],
+      );
+      const revisions = await db.query('select changed_by from public.record_revisions where record_id = $1', [rows[0].id]);
+      expect(revisions.rows.map((x) => x.changed_by)).toEqual([t.crew]);
+    });
+
     it('is visible to the farm’s members and nobody else', async () => {
       const r = await insertRecord(db, t.crew, t.farm);
       const count = (uid) => asUser(db, uid, async () => (await db.query('select 1 from public.record_revisions where record_id = $1', [r.id])).rows.length);

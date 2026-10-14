@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { KIND_FIELDS, KIND_META, optionLabel } from '../../domain/records/kinds.js';
 import { availableActions, canEditRecord } from '../../domain/records/workflow.js';
+import { getRecordFileUrl } from '../../lib/db.js';
 import { listRevisions, setRecordStatus } from '../../lib/records.js';
 import { recordsText } from './text.js';
 import * as ui from './ui.js';
@@ -69,6 +70,16 @@ export default function RecordDetail({ record, role, userId, farm, onClose, onCh
     onChanged?.(result.data);
   }
 
+  async function openFile(path) {
+    setError(null);
+    const url = await getRecordFileUrl(path);
+    if (!url) {
+      setError({ code: 'file' });
+      return;
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
   if (editing) {
     return (
       <RecordForm
@@ -105,6 +116,16 @@ export default function RecordDetail({ record, role, userId, farm, onClose, onCh
         <p style={{ fontSize: 12, color: '#92400e', background: '#fef3c7', borderRadius: 8, padding: '8px 12px', margin: '12px 0' }}>
           {tt.detail.missing} {current.missing_fields.map((k) => (k === 'record_date' ? tt.form.date : label(k))).join(', ')}
         </p>
+      )}
+
+      {current.attachments?.length > 0 && (
+        <Row label={tt.detail.sourceFile}>
+          {current.attachments.map((file, index) => (
+            <button key={file.path} type="button" onClick={() => openFile(file.path)} style={{ ...ui.buttonSecondary, padding: '3px 10px', marginRight: 6 }}>
+              {tt.detail.viewFile(index + 1)}
+            </button>
+          ))}
+        </Row>
       )}
 
       <div style={{ marginTop: 12 }}>

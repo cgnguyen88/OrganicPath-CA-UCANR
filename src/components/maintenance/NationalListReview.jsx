@@ -63,7 +63,7 @@ End with a summary: total inputs reviewed, how many need attention, and the sing
 
 Be concise — one line per material is enough unless there's a specific concern.`,
           }],
-          system: `You are Jimmy, a California organic certification compliance expert specializing in NOP §205.601–606 National List compliance. Give precise, actionable guidance.`,
+          mode: 'national_list_review',
           stream: false,
         }),
       });

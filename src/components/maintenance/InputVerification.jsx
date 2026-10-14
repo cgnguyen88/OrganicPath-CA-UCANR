@@ -95,7 +95,7 @@ ${inputList}
 
 Format: one line per input. Prefix each with ✓ CLEAR, ⚠ REVIEW, or ✗ ISSUE. End with a 2–3 line summary of the most urgent actions.`,
           }],
-          system: 'You are Jimmy, a California organic certification expert. Give concise, regulation-specific compliance guidance on organic input materials. Reference NOP sections directly.',
+          mode: 'input_verification',
           stream: false,
         }),
       });

@@ -6,7 +6,7 @@ describe('loadConfig', () => {
     const c = loadConfig({});
     expect(c.model).toBe('claude-sonnet-4-6');
     expect(c.maxOutputTokens).toBe(2048);
-    expect(c.rate).toEqual({ perMinute: 20, perDay: 400 });
+    expect(c.rate).toEqual({ perMinute: 20, perDay: 400, globalPerDay: 5000 });
     expect(c.allowedOrigins).toEqual([]);
     expect(c.limits.maxTotalChars).toBe(200_000);
   });

@@ -2,8 +2,6 @@ import { authedFetch } from '../../lib/apiClient.js';
 import { useState } from 'react';
 import { Calendar as CalendarIcon, FileStack, Map, CheckSquare, Search, RefreshCw, Copy, CheckCheck } from 'lucide-react';
 
-const JIMMY_SYSTEM = `You are Jimmy, a California organic certification inspector preparation expert. You generate thorough, operation-specific pre-inspection checklists and document lists aligned with USDA NOP 7 CFR Part 205 and CDFA/CDPH requirements. Be specific, practical, and reference NOP sections directly.`;
-
 async function streamClaude(prompt, onChunk, onError) {
   try {
     const res = await authedFetch('/api/claude', {
@@ -11,7 +9,7 @@ async function streamClaude(prompt, onChunk, onError) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         messages: [{ role: 'user', content: prompt }],
-        system: JIMMY_SYSTEM,
+        mode: 'inspector_prep',
         stream: true,
       }),
     });
