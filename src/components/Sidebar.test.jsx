@@ -24,6 +24,21 @@ const setup = (props = {}, lang = 'en') => {
 beforeEach(() => localStorage.clear());
 afterEach(cleanup);
 
+describe('Sidebar: glass surface', () => {
+  it('floats the menu as a glass panel over a decorative backdrop that assistive technology skips', () => {
+    const { container } = (() => { setup(); return { container: document.body }; })();
+    const backdrop = container.querySelector('.menu-backdrop');
+    expect(backdrop).toBeTruthy();
+    expect(backdrop.getAttribute('aria-hidden')).toBe('true');
+    expect(backdrop.querySelectorAll('.menu-orb').length).toBeGreaterThanOrEqual(2);
+    const panel = container.querySelector('.menu-panel');
+    expect(panel).toBeTruthy();
+    expect(panel.contains(screen.getByRole('navigation', { name: /main/i }))).toBe(true);
+    expect(panel.contains(screen.getByRole('button', { name: 'Log Out' }))).toBe(true);
+    expect(backdrop.contains(screen.getByRole('navigation', { name: /main/i }))).toBe(false); // the backdrop holds no content
+  });
+});
+
 describe('Sidebar: structure', () => {
   it('is a labelled navigation landmark with the app name', () => {
     setup();

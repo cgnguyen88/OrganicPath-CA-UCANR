@@ -30,8 +30,11 @@ const PATHS = [
 const initialsOf = (name) => (name ? name.split(' ').filter(Boolean).map((w) => w[0]).join('').slice(0, 2).toUpperCase() : '?');
 
 /**
- * The app's side menu: flat and quiet. One accent (the current page), plain line icons, and sections
- * that collapse and remember how you left them. Styling comes from the `.side-menu` rules in global.js.
+ * The app's side menu, as a liquid-glass panel: a translucent, softly blurred surface that floats over a
+ * slow color backdrop, with bright edge highlights. Underneath it is still flat and quiet: plain line
+ * icons, one accent (the current page), and sections that collapse and remember how you left them.
+ * Styling comes from the `.side-menu` rules in global.js, which also provide solid fallbacks for
+ * browsers without backdrop blur and for people who ask for reduced transparency or motion.
  */
 export default function Sidebar({ activePage, onNavigate, user, farm, onLogout, certificationStatus, onChangeStatus, onSetStatus, needsReviewCount = 0, savedViews = [] }) {
   const { lang, toggleLang } = useLanguage();
@@ -47,17 +50,19 @@ export default function Sidebar({ activePage, onNavigate, user, farm, onLogout, 
   const row = ({ id, icon }) => <NavItem key={id} icon={icon} label={label(id)} active={activePage === id} onClick={() => onNavigate(id)} />;
 
   return (
-    <aside
-      className="side-menu no-print"
-      style={{
-        width: 260, minWidth: 260, height: '100vh', flexShrink: 0, display: 'flex', flexDirection: 'column',
-        background: 'var(--u-navy-d)', borderRight: '1px solid rgba(255,255,255,0.06)',
-      }}
-    >
+    <aside className="side-menu no-print" style={{ width: 290, minWidth: 290, height: '100vh', flexShrink: 0, position: 'relative' }}>
+      {/* Something colorful behind the glass, so the blur has something to bend. Purely decorative. */}
+      <div className="menu-backdrop" aria-hidden="true">
+        <span className="menu-orb menu-orb-sky" />
+        <span className="menu-orb menu-orb-gold" />
+        <span className="menu-orb menu-orb-green" />
+      </div>
+
+      <div className="menu-panel">
       {/* Brand */}
       <div style={{ padding: '18px 16px 14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div aria-hidden="true" style={{ width: 28, height: 28, borderRadius: 7, background: 'var(--u-gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <div aria-hidden="true" className="menu-mark">
             <Leaf size={16} color="var(--u-navy)" strokeWidth={2.25} />
           </div>
           <span style={{ color: '#fff', fontFamily: 'Lora, serif', fontWeight: 700, fontSize: 15, letterSpacing: '-0.01em' }}>OrganicPath CA</span>
@@ -92,7 +97,7 @@ export default function Sidebar({ activePage, onNavigate, user, farm, onLogout, 
       </nav>
 
       {/* Footer: language and account */}
-      <div style={{ padding: '10px 12px 12px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+      <div className="menu-footer">
         <div className="menu-segment" role="group" aria-label={lang === 'en' ? 'Language' : 'Idioma'} style={{ marginBottom: 10 }}>
           {[['en', 'EN'], ['es', 'ES']].map(([code, text]) => (
             <button key={code} type="button" aria-pressed={lang === code} onClick={() => { if (lang !== code) toggleLang(); }}>{text}</button>
@@ -101,7 +106,7 @@ export default function Sidebar({ activePage, onNavigate, user, farm, onLogout, 
 
         {user && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div aria-hidden="true" style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.12)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
+            <div aria-hidden="true" className="menu-avatar">
               {initialsOf(user.name)}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -115,6 +120,7 @@ export default function Sidebar({ activePage, onNavigate, user, farm, onLogout, 
             </button>
           </div>
         )}
+      </div>
       </div>
     </aside>
   );
