@@ -67,6 +67,13 @@ describe('NavItem', () => {
     expect(pad('One')).toBeGreaterThan(pad('Flat'));
   });
 
+  it('can wrap a long label onto a second line instead of cutting it off', () => {
+    render(<><NavItem label="Purchases without OMRI listing" onClick={() => {}} wrap /><NavItem label="Short" onClick={() => {}} /></>);
+    const labelOf = (name) => screen.getByRole('button', { name }).querySelector('span');
+    expect(labelOf('Purchases without OMRI listing').style.whiteSpace).toBe('normal');
+    expect(labelOf('Short').style.whiteSpace).toBe('nowrap'); // the default stays a single line
+  });
+
   it('renders trailing content such as a chevron', () => {
     setup({ trailing: <span data-testid="chev" /> });
     expect(screen.getByTestId('chev')).toBeTruthy();

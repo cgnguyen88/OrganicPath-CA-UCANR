@@ -69,32 +69,28 @@ export const GLOBAL_CSS = `
      inner glow. Solid fallbacks below for no backdrop-filter, reduced transparency and reduced motion. */
   .side-menu {
     --menu-text: rgba(255,255,255,0.78); --menu-muted: rgba(255,255,255,0.56);
-    --glass-fill: linear-gradient(155deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.05) 46%, rgba(255,255,255,0.09) 100%);
-    --glass-rim: rgba(255,255,255,0.22); --glass-shine: rgba(255,255,255,0.38);
+    --glass-fill: linear-gradient(155deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 50%, rgba(255,255,255,0.06) 100%);
+    --glass-rim: rgba(255,255,255,0.15); --glass-shine: rgba(255,255,255,0.24);
     --glass-ease: cubic-bezier(.22,.8,.24,1);
     position: relative; overflow: hidden; isolation: isolate;
     background: linear-gradient(165deg, #001a31 0%, #002a4e 52%, #00223f 100%);
   }
   .menu-backdrop { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
-  .menu-orb { position: absolute; border-radius: 50%; filter: blur(34px); opacity: .6; will-change: transform; }
-  .menu-orb-sky   { width: 210px; height: 210px; left: -70px; top: 40px;  background: radial-gradient(circle at 35% 35%, #3AA8E4, rgba(58,168,228,0) 70%); animation: orb-drift-a 26s ease-in-out infinite; }
-  .menu-orb-gold  { width: 170px; height: 170px; right: -70px; top: 62%;  background: radial-gradient(circle at 40% 40%, #FDBD10, rgba(253,189,16,0) 70%); opacity: .28; animation: orb-drift-b 32s ease-in-out infinite; }
-  .menu-orb-green { width: 230px; height: 230px; left: -40px; bottom: -70px; background: radial-gradient(circle at 40% 40%, #2fa84f, rgba(47,168,79,0) 70%); opacity: .5; animation: orb-drift-c 29s ease-in-out infinite; }
-  @keyframes orb-drift-a { 0%,100% { transform: translate(0,0) } 50% { transform: translate(46px, 70px) } }
-  @keyframes orb-drift-b { 0%,100% { transform: translate(0,0) } 50% { transform: translate(-50px,-64px) } }
-  @keyframes orb-drift-c { 0%,100% { transform: translate(0,0) } 50% { transform: translate(60px,-44px) } }
+  .menu-orb { position: absolute; border-radius: 50%; filter: blur(48px); opacity: .26; }
+  .menu-orb-sky   { width: 240px; height: 240px; left: -90px; top: 10px;     background: radial-gradient(circle at 40% 40%, #3AA8E4, rgba(58,168,228,0) 70%); }
+  .menu-orb-green { width: 260px; height: 260px; left: -60px; bottom: -110px; background: radial-gradient(circle at 40% 40%, #2fa84f, rgba(47,168,79,0) 70%); opacity: .22; }
 
   .menu-panel {
     position: relative; z-index: 1; display: flex; flex-direction: column;
-    margin: 10px; height: calc(100% - 20px); border-radius: 22px; overflow: hidden;
+    margin: 10px; height: calc(100% - 20px); border-radius: 20px; overflow: hidden;
     background: var(--glass-fill);
-    -webkit-backdrop-filter: blur(26px) saturate(165%); backdrop-filter: blur(26px) saturate(165%);
+    -webkit-backdrop-filter: blur(24px) saturate(140%); backdrop-filter: blur(24px) saturate(140%);
     border: 1px solid var(--glass-rim);
-    box-shadow: inset 0 1px 0 var(--glass-shine), inset 0 -1px 0 rgba(255,255,255,0.06), inset 0 0 28px rgba(255,255,255,0.04), 0 18px 40px rgba(0,10,25,0.45);
+    box-shadow: inset 0 1px 0 var(--glass-shine), inset 0 0 22px rgba(255,255,255,0.025), 0 14px 32px rgba(0,10,25,0.38);
   }
-  .menu-panel::before { /* a soft specular sweep across the top, like light catching the glass */
-    content: ""; position: absolute; left: 0; right: 0; top: 0; height: 90px; pointer-events: none; z-index: 0;
-    background: radial-gradient(120% 100% at 20% 0%, rgba(255,255,255,0.20), rgba(255,255,255,0) 62%);
+  .menu-panel::before { /* a very soft sheen along the top edge */
+    content: ""; position: absolute; left: 0; right: 0; top: 0; height: 70px; pointer-events: none; z-index: 0;
+    background: radial-gradient(120% 100% at 20% 0%, rgba(255,255,255,0.09), rgba(255,255,255,0) 65%);
   }
   .menu-panel > * { position: relative; z-index: 1; }
 
@@ -117,20 +113,51 @@ export const GLOBAL_CSS = `
 
   .nav-item {
     position: relative; width: 100%; display: flex; align-items: center; gap: 10px;
-    min-height: 34px; padding: 6px 12px; border: 1px solid transparent; border-radius: 12px; background: transparent;
+    min-height: 33px; padding: 6px 12px; border: 1px solid transparent; border-radius: 10px; background: transparent;
     color: var(--menu-text); font: 400 13px/1.2 Inter, sans-serif; text-align: left; cursor: pointer;
     transition: background-color .28s var(--glass-ease), box-shadow .28s var(--glass-ease), border-color .28s var(--glass-ease), color .2s ease;
   }
   .nav-item:hover { background: rgba(255,255,255,0.09); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,0.14); }
   .nav-item:focus-visible { outline: 2px solid #8fd0ff; outline-offset: -2px; }
   .nav-item[aria-current="page"] { /* the current page: a gold-tinted glass pill */
-    color: #fff; font-weight: 600; border-color: rgba(253,189,16,0.38);
-    background: linear-gradient(135deg, rgba(253,189,16,0.26) 0%, rgba(255,255,255,0.14) 55%, rgba(255,255,255,0.08) 100%);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.42), inset 0 -1px 0 rgba(255,255,255,0.06), 0 6px 18px rgba(253,189,16,0.14);
+    color: #fff; font-weight: 600; border-color: rgba(253,189,16,0.30);
+    background: linear-gradient(135deg, rgba(253,189,16,0.20) 0%, rgba(255,255,255,0.10) 60%, rgba(255,255,255,0.06) 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.30), 0 4px 12px rgba(253,189,16,0.08);
   }
   .nav-item svg { flex-shrink: 0; opacity: .85; transition: opacity .2s ease, color .2s ease; }
   .nav-item:hover svg { opacity: 1; }
   .nav-item[aria-current="page"] svg { opacity: 1; color: #ffd24a; }
+
+  /* Each main section is a card of its own: a clear title, a small tinted icon, a hairline of its accent. */
+  .nav-section {
+    --section-accent: #9fb4cc; position: relative; margin: 10px 0 0; overflow: hidden; border-radius: 14px;
+    background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.09); box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .nav-section::before {
+    content: ""; position: absolute; left: 14px; right: 14px; top: 0; height: 1px; pointer-events: none;
+    background: linear-gradient(90deg, rgba(255,255,255,0), var(--section-accent), rgba(255,255,255,0)); opacity: .6;
+  }
+  .nav-section-header {
+    width: 100%; display: flex; align-items: center; gap: 8px; padding: 9px 10px 8px; border: 0; background: transparent; cursor: pointer;
+    color: rgba(255,255,255,0.94); font: 600 12.5px/1.2 Inter, sans-serif; text-align: left;
+    transition: background-color .2s ease;
+  }
+  .nav-section-header:hover { background: rgba(255,255,255,0.04); }
+  .nav-section-header:focus-visible { outline: 2px solid #8fd0ff; outline-offset: -2px; }
+  .nav-section-icon {
+    width: 20px; height: 20px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px;
+    background: rgba(255,255,255,0.1); color: var(--section-accent);
+  }
+  @supports (background: color-mix(in srgb, red 20%, transparent)) {
+    .nav-section-icon { background: color-mix(in srgb, var(--section-accent) 20%, transparent); }
+  }
+  .nav-section-title { flex: 1; letter-spacing: .01em; }
+  .nav-section-count { min-width: 18px; padding: 2px 6px; border-radius: 9px; background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.78); font-size: 10.5px; font-weight: 600; line-height: 1; text-align: center; }
+  .nav-section-chevron { flex-shrink: 0; color: rgba(255,255,255,0.45); }
+  .nav-section-body { padding: 0 6px 6px; }
+  /* The list scrolls under the account card: fade its last few pixels so that is obvious. */
+  .side-menu .menu-nav { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent); }
+
   .nav-group-header {
     width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
     padding: 4px 12px; margin: 14px 0 4px; border: 0; background: transparent; cursor: pointer;
@@ -174,8 +201,7 @@ export const GLOBAL_CSS = `
     .menu-orb { display: none; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .menu-orb { animation: none; }
-    .nav-item, .menu-segment button, .menu-icon-button, .nav-group-header, .nav-item svg { transition: none; }
+    .nav-item, .menu-segment button, .menu-icon-button, .nav-group-header, .nav-section-header, .nav-item svg { transition: none; }
   }
 
   @media print {

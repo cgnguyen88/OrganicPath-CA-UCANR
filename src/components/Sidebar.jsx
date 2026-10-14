@@ -1,7 +1,7 @@
 import {
   Leaf, LayoutDashboard, ClipboardCheck, ListChecks, FileText,
   LogOut, Microscope, Receipt, Users, ClipboardList, DollarSign,
-  ShieldCheck, FlaskConical, BadgeCheck, ShieldHalf, Scale,
+  ShieldCheck, FlaskConical, BadgeCheck, ShieldHalf, Scale, Wrench,
 } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext.jsx';
 import t from '../data/translations.js';
@@ -22,6 +22,8 @@ const TOOLS_ITEMS = [
   { id: 'occsp', icon: DollarSign },
 ];
 
+const TOOLS_ACCENT = '#5bbcf0';
+
 const PATHS = [
   { value: 'pursuing', en: 'Pursuing', es: 'En Proceso' },
   { value: 'certified', en: 'Certified', es: 'Certificado' },
@@ -31,7 +33,7 @@ const initialsOf = (name) => (name ? name.split(' ').filter(Boolean).map((w) => 
 
 /**
  * The app's side menu, as a liquid-glass panel: a translucent, softly blurred surface that floats over a
- * slow color backdrop, with bright edge highlights. Underneath it is still flat and quiet: plain line
+ * faint, still color wash, with gentle edge highlights. Underneath it is still flat and quiet: plain line
  * icons, one accent (the current page), and sections that collapse and remember how you left them.
  * Styling comes from the `.side-menu` rules in global.js, which also provide solid fallbacks for
  * browsers without backdrop blur and for people who ask for reduced transparency or motion.
@@ -51,10 +53,9 @@ export default function Sidebar({ activePage, onNavigate, user, farm, onLogout, 
 
   return (
     <aside className="side-menu no-print" style={{ width: 290, minWidth: 290, height: '100vh', flexShrink: 0, position: 'relative' }}>
-      {/* Something colorful behind the glass, so the blur has something to bend. Purely decorative. */}
+      {/* A faint, still wash of color behind the glass, so the blur has something to soften. Purely decorative. */}
       <div className="menu-backdrop" aria-hidden="true">
         <span className="menu-orb menu-orb-sky" />
-        <span className="menu-orb menu-orb-gold" />
         <span className="menu-orb menu-orb-green" />
       </div>
 
@@ -86,12 +87,12 @@ export default function Sidebar({ activePage, onNavigate, user, farm, onLogout, 
       </div>
 
       {/* Navigation */}
-      <nav aria-label={lang === 'en' ? 'Main' : 'Principal'} style={{ flex: 1, overflowY: 'auto', padding: '2px 8px 12px' }}>
+      <nav className="menu-nav" aria-label={lang === 'en' ? 'Main' : 'Principal'} style={{ flex: 1, overflowY: 'auto', padding: '2px 8px 24px' }}>
         <NavGroup id="core">{coreItems.map(row)}</NavGroup>
 
         {farm && <RecordsNav activePage={activePage} onNavigate={onNavigate} needsReviewCount={needsReviewCount} savedViews={savedViews} />}
 
-        <NavGroup id="tools" label={tx.tools} forceOpen={TOOLS_ITEMS.some(({ id }) => id === activePage)}>
+        <NavGroup id="tools" label={tx.tools} icon={Wrench} accent={TOOLS_ACCENT} count={TOOLS_ITEMS.length} forceOpen={TOOLS_ITEMS.some(({ id }) => id === activePage)}>
           {TOOLS_ITEMS.map(row)}
         </NavGroup>
       </nav>

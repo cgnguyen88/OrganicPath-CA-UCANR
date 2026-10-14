@@ -89,6 +89,33 @@ describe('RecordsNav', () => {
     expect(screen.getByRole('button', { name: /^Needs Review/ })).toBeTruthy(); // but open when you are on one of its pages
   });
 
+  it('shows Saved Views as its own section, so collapsing Farm Records does not hide the shortcuts', async () => {
+    const { user } = setup();
+    await user.click(screen.getByRole('button', { name: 'Farm Records' }));
+    expect(screen.queryByRole('button', { name: /^Needs Review/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'This season’s sprays' })).toBeTruthy();
+  });
+
+  it('keeps Change History with the other record pages, not with the shortcuts', async () => {
+    const { user } = setup();
+    await user.click(screen.getByRole('button', { name: 'Saved Views' }));
+    expect(screen.getByRole('button', { name: /^Change History/ })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Farm Records' }));
+    expect(screen.queryByRole('button', { name: /^Change History/ })).toBeNull();
+  });
+
+  it('opens only the section that owns the current page', () => {
+    localStorage.setItem('orgpath_nav_group_records', 'false');
+    localStorage.setItem('orgpath_nav_group_saved-views', 'false');
+    setup({ activePage: 'view:view-1' });
+    expect(screen.getByRole('button', { name: 'This season’s sprays' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Needs Review/ })).toBeNull();
+    cleanup();
+    setup({ activePage: 'needsReview' });
+    expect(screen.getByRole('button', { name: /^Needs Review/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'This season’s sprays' })).toBeNull();
+  });
+
   it('lets the saved views be collapsed separately, and keeps the open one visible', async () => {
     const { user } = setup();
     await user.click(screen.getByRole('button', { name: 'Saved Views' }));
