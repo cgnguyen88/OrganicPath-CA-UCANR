@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { screen, cleanup, within } from '@testing-library/react';
+import { screen, cleanup, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithLang } from '../records/testUtils.jsx';
 
@@ -199,14 +199,27 @@ describe('AuditTrailForm: writing the document', () => {
     expect(await screen.findByText('[Error: API 500]')).toBeTruthy();
   });
 
-  it('saves the draft as a text file named for the certification year', async () => {
-    streamClaude.mockImplementation(async (_p, onChunk) => onChunk('Saved text'));
+  it('saves the draft as a Word document named for the certification year', async () => {
+    streamClaude.mockImplementation(async (_p, onChunk) => onChunk('## Saved text'));
     renderForm();
     await table();
     await userEvent.click(await generate());
-    await screen.findByText('Saved text');
-    await userEvent.click(screen.getByRole('button', { name: /Download/ }));
-    expect(saveAs.mock.calls[0][1]).toBe('audit-trail-system-2026.txt');
+    await screen.findByRole('heading', { name: 'Saved text' });
+    await userEvent.click(screen.getByRole('button', { name: /Download Word/ }));
+    await waitFor(() => expect(saveAs).toHaveBeenCalledTimes(1));
+    const [blob, name] = saveAs.mock.calls[0];
+    expect(name).toBe('audit-trail-system-2026.docx');
+    expect(blob.type).toBe('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    expect(blob.size).toBeGreaterThan(1000);
+  });
+
+  it('shows the draft as a formatted document, with no markdown marks on screen', async () => {
+    streamClaude.mockImplementation(async (_p, onChunk) => onChunk('## 1. Overview\n\n- **Retention:** five years'));
+    renderForm();
+    await table();
+    await userEvent.click(await generate());
+    expect(await screen.findByRole('heading', { name: '1. Overview' })).toBeTruthy();
+    expect(screen.getByRole('listitem').textContent).toBe('Retention: five years');
   });
 
   it('works in Spanish', async () => {
@@ -218,5 +231,44 @@ describe('AuditTrailForm: writing the document', () => {
     await userEvent.click(await generate());
     await screen.findByText('Borrador');
     expect(promptSent()).toMatch(/Respond entirely in Spanish/);
+  });
+
+  it('keeps the Copy and Download buttons off while the draft is still being written', async () => {
+    let finish;
+    streamClaude.mockImplementation((_p, onChunk) => { onChunk('## Part one'); return new Promise((resolve) => { finish = resolve; }); });
+    renderForm();
+    await table();
+    await userEvent.click(await generate());
+    await screen.findByRole('heading', { name: 'Part one' });
+    expect(screen.getByRole('button', { name: /Download Word/ }).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Copy' }).disabled).toBe(true);
+    finish();
+    await waitFor(() => expect(screen.getByRole('button', { name: /Download Word/ }).disabled).toBe(false));
+  });
+
+  it('shows a failure as an alert beside the draft, never inside it, and does not let half a draft be saved', async () => {
+    streamClaude.mockImplementation(async (_p, onChunk, onError) => { onChunk('## Half a draft'); onError('API 500'); });
+    renderForm();
+    await table();
+    await userEvent.click(await generate());
+    expect((await screen.findByRole('alert')).textContent).toBe('[Error: API 500]');
+    const draft = screen.getByRole('heading', { name: 'Half a draft' }).closest('[data-variant]');
+    expect(draft.textContent).not.toContain('Error');
+    expect(screen.getByRole('button', { name: /Download Word/ }).disabled).toBe(true);
+    streamClaude.mockImplementation(async (_p, onChunk) => onChunk('## Whole draft'));
+    await userEvent.click(await generate());
+    await screen.findByRole('heading', { name: 'Whole draft' });
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByRole('button', { name: /Download Word/ }).disabled).toBe(false);
+  });
+
+  it('says Copied after a copy, and offers Copiar in a Spanish app', async () => {
+    streamClaude.mockImplementation(async (_p, onChunk) => onChunk('Texto'));
+    renderForm({}, 'es');
+    await screen.findByRole('table', { name: 'Tus registros, año por año' });
+    await userEvent.click(await generate());
+    await screen.findByText('Texto');
+    expect(screen.getByRole('button', { name: 'Copiar' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Descargar Word/ })).toBeTruthy();
   });
 });

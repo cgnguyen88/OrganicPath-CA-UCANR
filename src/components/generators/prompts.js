@@ -48,21 +48,21 @@ Known non-compliance incidents: ${typed(nonCompliances, 'none reported by the fa
 
 ${NO_INVENTING_RULES}
 
-Generate a complete audit report with:
-1. AUDIT HEADER & SCOPE
-2. METHODOLOGY (review process, documents examined)
-3. INPUT INVENTORY REVIEW TABLE (for each input: product name, OMRI status as recorded, NOP classification, compliance status: only what the records support)
-4. PROHIBITED SUBSTANCE SCREENING CHECKLIST
+Write a complete audit report with these sections, each under its own ## heading (keep the numbers):
+1. Audit Header & Scope
+2. Methodology (review process, documents examined)
+3. Input Inventory Review Table (a Markdown table with, for each input: product name, OMRI status as recorded, NOP classification, compliance status: only what the records support)
+4. Prohibited Substance Screening Checklist
    - Synthetic fertilizers (prohibited under NOP §205.601)
    - Prohibited pesticides/herbicides
    - Prohibited materials on livestock operations
    - GMO/excluded methods check
-5. STORAGE & HANDLING REVIEW (commingling risk, contamination prevention)
-6. SUPPLIER VERIFICATION STATUS
-7. APPLICATION RECORDS COMPLIANCE (required buffer periods, pre-harvest intervals)
-8. FINDINGS SUMMARY (for each category: what the records show, and what is still unverified)
-9. CORRECTIVE ACTIONS REQUIRED (every gap named above)
-10. AUDITOR CERTIFICATION (a blank signature block)
+5. Storage & Handling Review (commingling risk, contamination prevention)
+6. Supplier Verification Status
+7. Application Records Compliance (required buffer periods, pre-harvest intervals)
+8. Findings Summary (for each category: what the records show, and what is still unverified)
+9. Corrective Actions Required (every gap named above)
+10. Auditor Certification (a blank signature block)
 
 Be specific about NOP regulations. Flag any questionable materials.${lang === 'es' ? SPANISH : ''}`;
 }
@@ -92,18 +92,18 @@ ${coverageForPrompt(coverage, 'en')}
 
 ${NO_INVENTING_RULES}
 
-Generate a complete 5-Year Audit Trail System with:
+Write a complete 5-Year Audit Trail System with these sections, each under its own ## heading (keep the numbers):
 
-1. SYSTEM OVERVIEW & REGULATORY BASIS
+1. System Overview & Regulatory Basis
    - Reference to NOP §205.103 (recordkeeping requirements)
    - 5-year retention mandate
    - Audit trail definition and purpose
 
-2. MASTER RECORD INDEX (a table of the record categories, showing what the records above hold and what is missing)
+2. Master Record Index (a Markdown table of the record categories, showing what the records above hold and what is missing)
 
-3. ANNUAL RECORDKEEPING CALENDAR (month-by-month checklist)
+3. Annual Recordkeeping Calendar (month-by-month checklist)
 
-4. REQUIRED RECORD CATEGORIES (what each must contain):
+4. Required Record Categories (what each must contain):
    a) Field Activity Log (planting, harvesting, field operations)
    b) Input Purchase Records (supplier, lot #, OMRI status, quantity)
    c) Input Application Records (field, date, rate, applicator)
@@ -113,17 +113,17 @@ Generate a complete 5-Year Audit Trail System with:
    g) Supplier Verification File
    h) Annual Update Submission Log
 
-5. COMMINGLING PREVENTION RECORDS (NOP §205.272)
+5. Commingling Prevention Records (NOP §205.272)
    - Separation documentation
    - Parallel production records (if applicable)
 
-6. INSPECTION READINESS CHECKLIST (what to have ready for annual inspection)
+6. Inspection Readiness Checklist (what to have ready for annual inspection)
 
-7. ELECTRONIC RECORDS POLICY (backup, security, access)
+7. Electronic Records Policy (backup, security, access)
 
-8. RECORD RETENTION SCHEDULE (5-year rolling calendar)
+8. Record Retention Schedule (5-year rolling calendar)
 
-9. SYSTEM CERTIFICATION STATEMENT (a blank signature block)
+9. System Certification Statement (a blank signature block)
 
 Make it practical, and name every gap the records above show.${lang === 'es' ? SPANISH : ''}`;
 }

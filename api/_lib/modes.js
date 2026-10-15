@@ -3,10 +3,10 @@
  *
  * Clients send a mode id (and, for two modes, a few short profile fields); they can no longer send
  * a system prompt of their own, so the proxy cannot be steered into a general-purpose model. The
- * wording below is the text the screens used to send, moved here unchanged.
+ * wording below is the text the screens used to send, moved here, with a formatting paragraph added for each mode.
  */
 
-const STATIC_PROMPTS = {
+const BASE_PROMPTS = {
   chat: `You are Jimmy, a warm, knowledgeable, and bilingual California organic certification expert. You help small farmers and food processors navigate the California CDFA organic certification process.
 
 You have deep expertise in:
@@ -82,6 +82,30 @@ When drafting corrective action responses:
   omri_guide: `You are an expert on OMRI (Organic Materials Review Institute) listing criteria and USDA NOP National List compliance (7 CFR Part 205). You have comprehensive knowledge of allowed and prohibited substances under §205.601–606, seed requirements under §205.204, and soil/compost requirements under §205.203. Always remind users to verify at omri.org for official confirmation, as your knowledge may not reflect the current OMRI database state.`,
 };
 
+/**
+ * How each kind of answer should be laid out. The app turns the Markdown into formatted headings,
+ * lists and tables (and into Word), so the model is asked for clean structure and nothing decorative.
+ */
+const DOCUMENT_FORMAT = 'Formatting: write as a clean, professional document. Use Markdown only for structure: ## headings for sections (the first line is the title or the first section, never a greeting), short paragraphs, - bullet lists, numbered lists for sequential steps, and a Markdown table when comparing items or listing records. Use bold sparingly for key terms or field labels. Do not use emoji, decorative symbols, horizontal rules or code fences.';
+const CONVERSATIONAL_FORMAT = 'Formatting: reply the way a knowledgeable colleague would write a message. Use short paragraphs, and a bullet list, numbered list or table only when it makes the answer clearer. Bold is fine for a key term. Use headings only for long answers. Do not use emoji or decorative symbols.';
+const FORM_FIELD_FORMAT = 'Formatting: this text goes straight into an editable form field, so write plain text with no Markdown (no #, asterisks, backticks or tables). Use short paragraphs, and put each list item on its own line starting with "- ". Do not use emoji or decorative symbols.';
+
+const FORMAT_BY_MODE = {
+  chat: CONVERSATIONAL_FORMAT,
+  occsp: DOCUMENT_FORMAT,
+  national_list_review: CONVERSATIONAL_FORMAT,
+  input_verification: CONVERSATIONAL_FORMAT,
+  omri_guide: DOCUMENT_FORMAT,
+  record_generator: DOCUMENT_FORMAT,
+  inspector_prep: DOCUMENT_FORMAT,
+  osp_update: DOCUMENT_FORMAT,
+  action_response: DOCUMENT_FORMAT,
+};
+
+const STATIC_PROMPTS = Object.fromEntries(
+  Object.entries(BASE_PROMPTS).map(([mode, text]) => [mode, `${text}\n\n${FORMAT_BY_MODE[mode]}`]),
+);
+
 /** Appended after the base prompt when the interface is in Spanish (modes not listed add nothing). */
 const SPANISH_SUFFIX = {
   chat: '\n\nIMPORTANT: The user is using the Spanish interface. Respond in Spanish unless they write in English.',
@@ -91,9 +115,9 @@ const SPANISH_SUFFIX = {
 const LANGUAGE_NAMES = { en: 'English', es: 'Spanish' };
 const MAX_CONTEXT_CHARS = 200;
 const CONTEXT_FIELDS = ['operationName', 'operationType', 'crops', 'county'];
-// C0 controls (including newlines) and DEL: a context value stays on one line.
+// C0 and C1 controls (including newlines, NEL and DEL) and the Unicode line and paragraph separators: a context value stays on one line.
 // eslint-disable-next-line no-control-regex -- matching control characters is the point
-const CONTROL_CHARS = /[\u0000-\u001F\u007F]+/g;
+const CONTROL_CHARS = /[\u0000-\u001F\u007F-\u009F\u2028\u2029]+/g;
 
 /**
  * The operation fields the OSP and wizard assistants may mention. Only these four keys survive,
@@ -121,11 +145,11 @@ const operationLine = (context, cropsLabel) => {
 
 const DYNAMIC_PROMPTS = {
   osp_field: ({ language, context }) =>
-    `You are a California organic certification expert. The user is completing their Organic System Plan. Provide practical, specific, submission-ready content in ${language}.\n${operationLine(context, 'Crops')}`,
+    `You are a California organic certification expert. The user is completing their Organic System Plan. Provide practical, specific, submission-ready content in ${language}.\n${FORM_FIELD_FORMAT}\n${operationLine(context, 'Crops')}`,
   wizard_suggest: ({ language, context }) =>
-    `You are Jimmy, a California organic certification expert. The user is completing their Organic System Plan. Based on their operation, provide a practical, concise suggestion in ${language}.\n\n${operationLine(context, 'Crops/Products')}`,
+    `You are Jimmy, a California organic certification expert. The user is completing their Organic System Plan. Based on their operation, provide a practical, concise suggestion in ${language}.\n${FORM_FIELD_FORMAT}\n\n${operationLine(context, 'Crops/Products')}`,
   osp_generate: ({ language }) =>
-    `You are an expert organic certification consultant. Generate a complete, professional, submission-ready Organic System Plan (OSP) for a California operation. Write in first-person voice. Be specific — vague language triggers inspector follow-up. Include NOP section citations. Mark missing data as [NEEDS OPERATOR INPUT: description]. Respond in ${language}.`,
+    `You are an expert organic certification consultant. Generate a complete, professional, submission-ready Organic System Plan (OSP) for a California operation. Write in first-person voice. Be specific — vague language triggers inspector follow-up. Include NOP section citations. Mark missing data as [NEEDS OPERATOR INPUT: description].\n\n${DOCUMENT_FORMAT}\n\nRespond in ${language}.`,
 };
 
 export const MODE_IDS = Object.freeze([...Object.keys(STATIC_PROMPTS), ...Object.keys(DYNAMIC_PROMPTS)]);

@@ -1,6 +1,9 @@
 import { authedFetch } from '../../lib/apiClient.js';
 import { useState } from 'react';
-import { Calendar as CalendarIcon, FileStack, Map, CheckSquare, Search, RefreshCw, Copy, CheckCheck } from 'lucide-react';
+import { Calendar as CalendarIcon, FileStack, Map, CheckSquare, Search, RefreshCw } from 'lucide-react';
+import AiText from '../AiText.jsx';
+import useAiOutputActions from '../useAiOutputActions.js';
+import AiOutputButtons from '../AiOutputButtons.jsx';
 
 async function streamClaude(prompt, onChunk, onError) {
   try {
@@ -91,7 +94,7 @@ List every physical site element an inspector will walk through and verify. For 
 Operation: ${p?.operationName || 'Certified Organic Operation'}
 Inspection Date: ${d.date || 'upcoming'}
 
-Format as an actionable checklist organized by area (Records & Documentation, Physical Farm, Inputs & Storage, Buffer Zones, Equipment). Each item should be a specific action ("Confirm all application logs include lot numbers" not just "Check logs"). Flag the top 5 most common non-compliance findings inspectors cite so the grower can double-check those areas.`,
+Write an actionable checklist with one ## heading for each area (Records & Documentation, Physical Farm, Inputs & Storage, Buffer Zones, Equipment) and each item as a "- [ ]" line. Each item should be a specific action ("Confirm all application logs include lot numbers" not just "Check logs"). Flag the top 5 most common non-compliance findings inspectors cite so the grower can double-check those areas.`,
   },
   {
     id: 'findings',
@@ -118,8 +121,8 @@ export default function InspectorPrep({ profile }) {
   });
   const [activeAction, setActiveAction] = useState(null);
   const [outputs, setOutputs] = useState({});
+  const [errors, setErrors] = useState({});
   const [loadingId, setLoadingId] = useState(null);
-  const [copied, setCopied] = useState(null);
 
   const days = daysUntil(inspectionData.date);
 
@@ -127,21 +130,22 @@ export default function InspectorPrep({ profile }) {
     setActiveAction(action.id);
     setLoadingId(action.id);
     setOutputs(prev => ({ ...prev, [action.id]: '' }));
+    setErrors(prev => ({ ...prev, [action.id]: '' }));
 
     const prompt = action.prompt(inspectionData, profile);
     await streamClaude(
       prompt,
       (chunk) => setOutputs(prev => ({ ...prev, [action.id]: (prev[action.id] || '') + chunk })),
-      (err) => { setOutputs(prev => ({ ...prev, [action.id]: `Error: ${err}` })); }
+      (err) => { setErrors(prev => ({ ...prev, [action.id]: err })); }
     );
     setLoadingId(null);
   };
 
-  const handleCopy = (id) => {
-    navigator.clipboard.writeText(outputs[id] || '');
-    setCopied(id);
-    setTimeout(() => setCopied(null), 2000);
-  };
+  const activeTitle = ACTIONS.find((a) => a.id === activeAction)?.title ?? 'Inspection Preparation';
+  const actions = useAiOutputActions(outputs[activeAction] || '', () => ({
+    title: activeTitle, subtitle: [profile?.operationName, inspectionData.date].filter(Boolean).join(' · '),
+    markdown: outputs[activeAction] || '', lang: 'en', filename: [activeTitle, inspectionData.date].filter(Boolean).join(' '),
+  }));
 
   return (
     <div>
@@ -237,22 +241,13 @@ export default function InspectorPrep({ profile }) {
             <h4 style={{ fontSize: 14, fontWeight: 700, color: '#475569' }}>
               {ACTIONS.find(a => a.id === activeAction)?.title.toUpperCase()}
             </h4>
-            {outputs[activeAction] && (
-              <button
-                onClick={() => handleCopy(activeAction)}
-                style={{ background: 'white', border: '1px solid #cbd5e1', padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
-              >
-                {copied === activeAction ? <CheckCheck size={13} color="#10b981" /> : <Copy size={13} />}
-                {copied === activeAction ? 'Copied' : 'Copy'}
-              </button>
-            )}
+            {outputs[activeAction] && <AiOutputButtons actions={actions} disabled={loadingId === activeAction || Boolean(errors[activeAction])} />}
           </div>
 
+          {errors[activeAction] && <div role="alert" style={{ background: '#fee2e2', color: '#991b1b', padding: 12, borderRadius: 8, fontSize: 13, marginBottom: 12 }}>Error: {errors[activeAction]}</div>}
           {outputs[activeAction] ? (
-            <pre style={{ fontSize: 13, lineHeight: 1.7, whiteSpace: 'pre-wrap', color: '#1e293b', fontFamily: 'inherit' }}>
-              {outputs[activeAction]}
-            </pre>
-          ) : (
+            <AiText text={outputs[activeAction]} headingStart={5} />
+          ) : !errors[activeAction] && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#64748b', fontSize: 13 }}>
               <RefreshCw size={16} style={{ animation: 'spin 1s linear infinite' }} />
               Jimmy is generating your {ACTIONS.find(a => a.id === activeAction)?.title.toLowerCase()}…

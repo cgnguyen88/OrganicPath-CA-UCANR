@@ -1,6 +1,9 @@
 import { authedFetch } from '../../lib/apiClient.js';
 import { useState } from 'react';
-import { RefreshCw, Download, Sparkles, Copy, CheckCheck } from 'lucide-react';
+import AiText from '../AiText.jsx';
+import useAiOutputActions from '../useAiOutputActions.js';
+import AiOutputButtons from '../AiOutputButtons.jsx';
+import { RefreshCw, Sparkles } from 'lucide-react';
 
 async function streamClaude(messages, assistant, onChunk, onError) {
   try {
@@ -46,8 +49,12 @@ export default function OSPUpdateWorkflow({ profile }) {
   });
   const [loading, setLoading] = useState(false);
   const [output, setOutput] = useState('');
-  const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
+  const actions = useAiOutputActions(output, () => ({
+    title: 'Annual OSP Update',
+    subtitle: [profile?.operationName, new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })].filter(Boolean).join(' · '),
+    markdown: output, lang: 'en', filename: `OSP-Update-${new Date().getFullYear()}-${profile?.operationName || 'operation'}`,
+  }));
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -74,12 +81,11 @@ Date: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long',
 CHANGES THIS YEAR:
 ${changesText}
 
-Format the document with these sections:
-1. HEADER (operation info, certifier, date)
-2. SUMMARY OF ANNUAL CHANGES (list each change category; note "No changes" where blank)
-3. REGULATORY COMPLIANCE ATTESTATION (verify all new fields meet 36-month transition per §205.202, all new inputs verified against National List §205.601–606, all new handling practices meet §205.270)
-4. RECORDKEEPING UPDATE (list what new records have been added per §205.103)
-5. GROWER AFFIRMATION (formal statement that OSP on file remains current except as noted)
+Start with the document header as plain lines (operation name, owner, certifier, date). Then write these sections, each under its own ## heading:
+- Summary of Annual Changes: list each change category; note "No changes" where blank
+- Regulatory Compliance Attestation: verify all new fields meet the 36-month transition per §205.202, all new inputs are verified against the National List §205.601–606, and all new handling practices meet §205.270
+- Recordkeeping Update: list what new records have been added per §205.103
+- Grower Affirmation: a formal statement that the OSP on file remains current except as noted, with a blank signature block
 
 Be formal and precise. Reference specific NOP sections. This document goes directly to the certifier.`;
 
@@ -93,24 +99,8 @@ Be formal and precise. Reference specific NOP sections. This document goes direc
     setLoading(false);
   };
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(output);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleDownload = () => {
-    const blob = new Blob([output], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `OSP-Update-${new Date().getFullYear()}-${profile?.operationName || 'operation'}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 40 }}>
       {/* Left: Input form */}
       <div>
         <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>What changed this year?</h3>
@@ -138,7 +128,7 @@ Be formal and precise. Reference specific NOP sections. This document goes direc
           ))}
 
           {error && (
-            <div style={{ background: '#fee2e2', color: '#991b1b', padding: 12, borderRadius: 8, fontSize: 13 }}>
+            <div role="alert" style={{ background: '#fee2e2', color: '#991b1b', padding: 12, borderRadius: 8, fontSize: 13 }}>
               Error: {error}
             </div>
           )}
@@ -162,27 +152,11 @@ Be formal and precise. Reference specific NOP sections. This document goes direc
       <div style={{ background: '#f8fafc', borderRadius: 12, padding: 24, border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h4 style={{ fontSize: 14, fontWeight: 700, color: '#475569' }}>DOCUMENT PREVIEW</h4>
-          {output && (
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                onClick={handleCopy}
-                style={{ background: 'white', border: '1px solid #cbd5e1', padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
-              >
-                {copied ? <CheckCheck size={13} color="#10b981" /> : <Copy size={13} />}
-                {copied ? 'Copied' : 'Copy'}
-              </button>
-              <button
-                onClick={handleDownload}
-                style={{ background: 'white', border: '1px solid #cbd5e1', padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
-              >
-                <Download size={13} /> Download
-              </button>
-            </div>
-          )}
+          {output && <AiOutputButtons actions={actions} disabled={loading || Boolean(error)} />}
         </div>
 
         {output ? (
-          <pre style={{ fontSize: 12, lineHeight: 1.7, whiteSpace: 'pre-wrap', color: '#1e293b', flex: 1, overflowY: 'auto' }}>{output}</pre>
+          <div style={{ flex: 1, overflowY: 'auto', background: 'white', borderRadius: 8, border: '1px solid #cbd5e1', padding: '16px 18px' }}><AiText text={output} headingStart={5} /></div>
         ) : (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: 32 }}>
             {loading ? 'Jimmy is drafting your §205.406 continuation document…' : 'Enter any changes above and click generate to create your annual OSP update draft.'}

@@ -1,6 +1,9 @@
 import { authedFetch } from '../../lib/apiClient.js';
 import { useState } from 'react';
-import { AlertTriangle, FileEdit, Copy, CheckCheck, RefreshCw, Download } from 'lucide-react';
+import AiText from '../AiText.jsx';
+import useAiOutputActions from '../useAiOutputActions.js';
+import AiOutputButtons from '../AiOutputButtons.jsx';
+import { AlertTriangle, FileEdit, RefreshCw } from 'lucide-react';
 
 async function streamClaude(messages, assistant, onChunk, onError) {
   try {
@@ -45,8 +48,11 @@ export default function ActionResponse({ profile }) {
   });
   const [generating, setGenerating] = useState(false);
   const [responseDraft, setResponseDraft] = useState('');
-  const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
+  const actions = useAiOutputActions(responseDraft, () => ({
+    title: 'Corrective Action Response', subtitle: [profile?.operationName, notice.dateReceived].filter(Boolean).join(' · '),
+    markdown: responseDraft, lang: 'en', filename: `Corrective-Action-Response-${notice.dateReceived}`,
+  }));
 
   const handleDraft = async () => {
     if (!notice.issue.trim()) return;
@@ -68,15 +74,14 @@ OPERATION INFO:
 - Operation Type: ${profile?.operationType || 'Crop Production'}
 - County: ${profile?.county || 'California'}
 
-Draft a complete formal response letter with these sections:
-1. HEADER — operation name, certifier, date, re: notice type + regulatory reference
-2. ACKNOWLEDGMENT — acknowledge receipt of the notice (not an admission of fault, just acknowledgment)
-3. DESCRIPTION OF FINDING — restate the finding clearly in the operation's own words
-4. ROOT CAUSE ANALYSIS — specific, honest analysis of how this occurred
-5. CORRECTIVE ACTIONS TAKEN — concrete, specific steps already implemented (include dates)
-6. PREVENTIVE MEASURES — systemic changes to prevent recurrence
-7. SUPPORTING DOCUMENTATION LIST — bulleted list of evidence documents to attach
-8. AFFIRMATION & SIGNATURE BLOCK — formal attestation statement
+Draft a complete formal response letter. Start with the letter header as plain lines (operation name, certifier, date, and a "Re:" line giving the notice type and regulatory reference). Then write these sections, each under its own ## heading:
+- Acknowledgment: acknowledge receipt of the notice (not an admission of fault, just acknowledgment)
+- Description of Finding: restate the finding clearly in the operation's own words
+- Root Cause Analysis: specific, honest analysis of how this occurred
+- Corrective Actions Taken: concrete, specific steps already implemented (include dates)
+- Preventive Measures: systemic changes to prevent recurrence
+- Supporting Documentation: a bulleted list of evidence documents to attach
+- Affirmation and Signature: a formal attestation statement, with a blank signature block
 
 Be specific and regulatory-precise. Vague responses get rejected by certifiers. Reference NOP sections directly.`;
 
@@ -88,22 +93,6 @@ Be specific and regulatory-precise. Vague responses get rejected by certifiers. 
     );
 
     setGenerating(false);
-  };
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(responseDraft);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleDownload = () => {
-    const blob = new Blob([responseDraft], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Corrective-Action-Response-${notice.dateReceived}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   return (
@@ -118,7 +107,7 @@ Be specific and regulatory-precise. Vague responses get rejected by certifiers. 
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 32 }}>
         {/* Left: Notice Details */}
         <div style={{ background: 'white', padding: 24, borderRadius: 12, border: '1.5px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 16 }}>
           <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Notice Details</h4>
@@ -172,7 +161,7 @@ Be specific and regulatory-precise. Vague responses get rejected by certifiers. 
           </div>
 
           {error && (
-            <div style={{ background: '#fee2e2', color: '#991b1b', padding: 10, borderRadius: 8, fontSize: 13 }}>
+            <div role="alert" style={{ background: '#fee2e2', color: '#991b1b', padding: 10, borderRadius: 8, fontSize: 13 }}>
               Error: {error}
             </div>
           )}
@@ -198,28 +187,12 @@ Be specific and regulatory-precise. Vague responses get rejected by certifiers. 
         <div style={{ background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', padding: 24, display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <h4 style={{ fontSize: 14, fontWeight: 700, color: '#475569' }}>DRAFT RESPONSE</h4>
-            {responseDraft && (
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  onClick={handleCopy}
-                  style={{ background: 'white', border: '1px solid #cbd5e1', padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
-                >
-                  {copied ? <CheckCheck size={13} color="#10b981" /> : <Copy size={13} />}
-                  {copied ? 'Copied' : 'Copy'}
-                </button>
-                <button
-                  onClick={handleDownload}
-                  style={{ background: 'white', border: '1px solid #cbd5e1', padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
-                >
-                  <Download size={13} /> Download
-                </button>
-              </div>
-            )}
+            {responseDraft && <AiOutputButtons actions={actions} disabled={generating || Boolean(error)} />}
           </div>
 
           {responseDraft ? (
-            <div style={{ flex: 1, fontSize: 12, lineHeight: 1.7, whiteSpace: 'pre-wrap', color: '#1e293b', background: 'white', padding: 16, borderRadius: 8, border: '1px solid #cbd5e1', overflowY: 'auto', maxHeight: 520 }}>
-              {responseDraft}
+            <div style={{ flex: 1, background: 'white', padding: '16px 18px', borderRadius: 8, border: '1px solid #cbd5e1', overflowY: 'auto', maxHeight: 520 }}>
+              <AiText text={responseDraft} headingStart={5} />
             </div>
           ) : (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: 32 }}>

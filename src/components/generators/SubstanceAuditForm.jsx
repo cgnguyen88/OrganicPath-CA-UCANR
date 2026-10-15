@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { saveAs } from 'file-saver';
+import useAiOutputActions from '../useAiOutputActions.js';
 import { Sparkles } from 'lucide-react';
 import { applicationSummary } from '../../domain/records/materials.js';
 import { isValidIsoDate } from '../../domain/records/schemas.js';
@@ -43,6 +43,7 @@ export default function SubstanceAuditForm({ profile, farm, onNavigate }) {
 
   const { status, materials, records, truncated, reload } = useFarmMaterials(farm?.id, from);
   const [output, setOutput] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const outputRef = useRef('');
 
@@ -51,6 +52,7 @@ export default function SubstanceAuditForm({ profile, farm, onNavigate }) {
     setLoading(true);
     outputRef.current = '';
     setOutput('');
+    setError('');
     const prompt = substanceAuditPrompt({
       operationName, auditDate, months, from, materials, summary: applicationSummary(records),
       typedInputs: value('inputs'), storage: value('storageLocations'), nonCompliances: value('nonCompliances'), lang,
@@ -58,11 +60,13 @@ export default function SubstanceAuditForm({ profile, farm, onNavigate }) {
     await streamClaude(prompt, (chunk) => {
       outputRef.current += chunk;
       setOutput(outputRef.current);
-    }, (message) => setOutput(`[Error: ${message}]`));
+    }, setError);
     setLoading(false);
   };
 
-  const download = () => saveAs(new Blob([output], { type: 'text/plain;charset=utf-8' }), `substance-audit-${auditDate}.txt`);
+  const actions = useAiOutputActions(output, () => ({
+    title: tt.docTitles.substance, subtitle: [operationName, auditDate].filter(Boolean).join(' · '), markdown: output, lang, filename: `substance-audit-${auditDate}`,
+  }));
 
   const field = (key, type, element = 'input') => {
     const id = `substance-${key}`;
@@ -76,7 +80,7 @@ export default function SubstanceAuditForm({ profile, farm, onNavigate }) {
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: output ? '1fr 1fr' : '1fr', gap: 20 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: output || error ? 'minmax(0, 1fr) minmax(0, 1fr)' : '1fr', gap: 20 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {field('operationName', 'text')}
         {field('auditDate', 'date')}
@@ -95,7 +99,7 @@ export default function SubstanceAuditForm({ profile, farm, onNavigate }) {
           {loading ? tt.generating : tt.substance.generate}
         </button>
       </div>
-      {output && <OutputPanel output={output} loading={loading} color={COLOR} label={tt.download} onDownload={download} />}
+      {(output || error) && <OutputPanel output={output} loading={loading} error={error} color={COLOR} actions={actions} labels={tt} />}
     </div>
   );
 }

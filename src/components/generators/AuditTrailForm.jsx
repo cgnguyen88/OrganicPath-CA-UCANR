@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { saveAs } from 'file-saver';
+import useAiOutputActions from '../useAiOutputActions.js';
 import { Sparkles } from 'lucide-react';
 import { KIND_META } from '../../domain/records/kinds.js';
 import { coverageStart, summarizeCoverage } from '../../domain/records/coverage.js';
@@ -74,6 +74,7 @@ export default function AuditTrailForm({ profile, farm, onNavigate }) {
   const set = (key) => (event) => setTyped((current) => ({ ...current, [key]: event.target.value }));
 
   const [output, setOutput] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const outputRef = useRef('');
   const ready = status === 'ready';
@@ -83,6 +84,7 @@ export default function AuditTrailForm({ profile, farm, onNavigate }) {
     setLoading(true);
     outputRef.current = '';
     setOutput('');
+    setError('');
     const prompt = auditTrailPrompt({
       operationName: value('operationName'), certificationYear: value('certificationYear'), operationType: value('operationType'), certifier: value('certifier'),
       certNumber: value('certNumber'), products: value('products'), systemDescription: value('systemDescription'), coverage, lang,
@@ -90,11 +92,13 @@ export default function AuditTrailForm({ profile, farm, onNavigate }) {
     await streamClaude(prompt, (chunk) => {
       outputRef.current += chunk;
       setOutput(outputRef.current);
-    }, (message) => setOutput(`[Error: ${message}]`));
+    }, setError);
     setLoading(false);
   };
 
-  const download = () => saveAs(new Blob([output], { type: 'text/plain;charset=utf-8' }), `audit-trail-system-${value('certificationYear')}.txt`);
+  const actions = useAiOutputActions(output, () => ({
+    title: tt.docTitles.auditTrail, subtitle: [value('operationName'), value('certificationYear')].filter(Boolean).join(' · '), markdown: output, lang, filename: `audit-trail-system-${value('certificationYear')}`,
+  }));
 
   const field = (key, type, element = 'input') => {
     const id = `audit-${key}`;
@@ -109,7 +113,7 @@ export default function AuditTrailForm({ profile, farm, onNavigate }) {
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: output ? '1fr 1fr' : '1fr', gap: 20 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: output || error ? 'minmax(0, 1fr) minmax(0, 1fr)' : '1fr', gap: 20 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <section style={{ padding: '14px 16px', borderRadius: 10, background: '#faf5ff', border: '1px solid #e9d5ff' }}>
           <h4 style={{ margin: '0 0 4px', fontSize: 13, color: '#6b21a8' }}>{tt.audit.coverageTitle}</h4>
@@ -149,7 +153,7 @@ export default function AuditTrailForm({ profile, farm, onNavigate }) {
           {loading ? tt.generating : tt.audit.generate}
         </button>
       </div>
-      {output && <OutputPanel output={output} loading={loading} color={COLOR} label={tt.download} onDownload={download} />}
+      {(output || error) && <OutputPanel output={output} loading={loading} error={error} color={COLOR} actions={actions} labels={tt} />}
     </div>
   );
 }

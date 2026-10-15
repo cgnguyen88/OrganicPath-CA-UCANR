@@ -1,5 +1,7 @@
 import { authedFetch } from '../lib/apiClient.js';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import AiText from './AiText.jsx';
+import { OMRI_PROMPT_LAYOUT, parseOmriAssessment } from './omriAssessment.js';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BadgeCheck, BookOpen, Search, AlertTriangle, CheckCircle2,
@@ -158,17 +160,9 @@ MATERIAL NAME: ${material}
 CATEGORY: ${category || 'Not specified'}
 ADDITIONAL CONTEXT: ${notes || 'None provided'}
 
-Provide a structured assessment with these four sections:
+${OMRI_PROMPT_LAYOUT}
 
-LIKELY STATUS: One of exactly — "✅ Likely Allowed", "⚠️ Allowed with Restrictions — verify", "❌ Likely Prohibited", or "❓ Cannot Determine — verify at omri.org"
-
-REASONING: 2–4 sentences explaining your assessment, citing specific NOP sections (§205.601–606, §205.204, §205.203, etc.) as applicable.
-
-KEY CONCERNS: A bulleted list of 2–4 specific things the grower should check — such as prohibited additives, application restrictions, formulation variants, documentation needed, etc.
-
-VERIFICATION STEP: One specific instruction for how to confirm status at omri.org or with their certifier.
-
-Be precise and regulation-specific. If the material name is generic (multiple formulations exist), note that clearly. Do not give false confidence — if uncertain, say so.`,
+Be precise and regulation-specific. If the material name is generic (multiple formulations exist), note that clearly. Do not give false confidence; if uncertain, say so.`,
       }],
       mode: 'omri_guide',
       stream: false,
@@ -233,18 +227,20 @@ function GuideSection({ section, isOpen, onToggle }) {
   );
 }
 
-function StatusBadge({ text }) {
-  const color = text?.includes('✅') ? '#10b981'
-    : text?.includes('⚠️') ? '#d97706'
-    : text?.includes('❌') ? '#dc2626'
-    : '#64748b';
-  const bg = text?.includes('✅') ? '#ecfdf5'
-    : text?.includes('⚠️') ? '#fffbeb'
-    : text?.includes('❌') ? '#fef2f2'
-    : '#f8fafc';
+const STATUS_STYLES = {
+  // text colours are dark enough to read on their tint (WCAG AA); the border keeps the brighter accent
+  allowed: { color: '#047857', accent: '#10b981', bg: '#ecfdf5', Icon: CheckCircle2 },
+  restricted: { color: '#b45309', accent: '#d97706', bg: '#fffbeb', Icon: AlertTriangle },
+  prohibited: { color: '#b91c1c', accent: '#dc2626', bg: '#fef2f2', Icon: XCircle },
+  unknown: { color: '#475569', accent: '#64748b', bg: '#f8fafc', Icon: HelpCircle },
+};
+
+function StatusBadge({ status, label }) {
+  const { color, accent, bg, Icon } = STATUS_STYLES[status];
   return (
-    <div style={{ background: bg, border: `1.5px solid ${color}30`, borderRadius: 10, padding: '12px 18px', marginBottom: 20 }}>
-      <div style={{ fontWeight: 700, fontSize: 15, color }}>{text}</div>
+    <div role="status" style={{ background: bg, border: `1.5px solid ${accent}30`, borderRadius: 10, padding: '12px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
+      <Icon size={20} color={color} aria-hidden="true" />
+      <div style={{ fontWeight: 700, fontSize: 15, color }}>{label}</div>
     </div>
   );
 }
@@ -277,12 +273,7 @@ export default function OMRIGuide() {
     setLoading(false);
   };
 
-  const statusLine = result
-    ? result.split('\n').find(l =>
-        l.includes('✅') || l.includes('⚠️') || l.includes('❌') || l.includes('❓') ||
-        l.toLowerCase().includes('likely status')
-      )
-    : '';
+  const assessment = useMemo(() => parseOmriAssessment(result), [result]);
 
   const TABS = [
     { id: 'guide',    label: 'OMRI Guide',      icon: BookOpen },
@@ -479,15 +470,13 @@ export default function OMRIGuide() {
             </div>
 
             {/* Right: result panel */}
-            <div style={{ background: '#f8fafc', borderRadius: 14, border: '1.5px solid #e2e8f0', padding: 28, display: 'flex', flexDirection: 'column' }}>
+            <div aria-live="polite" style={{ background: '#f8fafc', borderRadius: 14, border: '1.5px solid #e2e8f0', padding: 28, display: 'flex', flexDirection: 'column' }}>
               <h4 style={{ fontSize: 13, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 16 }}>Jimmy's Assessment</h4>
 
               {result ? (
                 <div style={{ flex: 1, overflowY: 'auto' }}>
-                  {statusLine && <StatusBadge text={statusLine} />}
-                  <pre style={{ fontSize: 13, lineHeight: 1.75, whiteSpace: 'pre-wrap', color: '#1e293b', fontFamily: 'Inter, sans-serif' }}>
-                    {result}
-                  </pre>
+                  {assessment.status && <StatusBadge status={assessment.status} label={assessment.label} />}
+                  <AiText text={assessment.body} headingStart={5} />
                   <div style={{ marginTop: 20, padding: '12px 16px', background: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                       <CheckCircle2 size={14} color="#166534" />

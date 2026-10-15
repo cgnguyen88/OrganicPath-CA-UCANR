@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import AiText from '../AiText.jsx';
 import { AlertTriangle, CheckCheck, CheckCircle, Info, Layers, Plus, RefreshCw, Search, X } from 'lucide-react';
 import { authedFetch } from '../../lib/apiClient.js';
 import { optionLabel } from '../../domain/records/kinds.js';
@@ -116,7 +117,7 @@ ${sections.join('\n\n')}
 
 Use only the information listed above. Do not invent suppliers, dates, products or listing numbers; where something is not recorded, say so.
 
-Format: one line per input. Prefix each with ✓ CLEAR, ⚠ REVIEW, or ✗ ISSUE. End with a 2–3 line summary of the most urgent actions.${lang === 'es' ? '\n\nRespond entirely in Spanish.' : ''}`;
+Present the result as a Markdown table with one row per input and these columns: Material, Status, Restrictions or annotation, Re-verification needed. Status is Clear, Review or Issue. Then add a "## Priority Actions" section of 2–3 lines on the most urgent actions.${lang === 'es' ? '\n\nRespond entirely in Spanish.' : ''}`;
 }
 
 /** The yearly check of a certified farm's materials, worked out from its Farm Records. */
@@ -245,7 +246,7 @@ export default function InputVerification({ farm, onNavigate }) {
       {result && (
         <div style={{ marginBottom: 24, background: '#f5f3ff', border: '1.5px solid #ddd6fe', borderRadius: 12, padding: 24 }}>
           <h4 style={{ fontSize: 15, fontWeight: 700, color: '#4c1d95', marginBottom: 12 }}>{tt.verification.resultTitle}</h4>
-          <pre style={{ fontSize: 13, lineHeight: 1.7, whiteSpace: 'pre-wrap', color: '#1e293b', fontFamily: 'inherit' }}>{result}</pre>
+          <AiText text={result} variant="chat" />
         </div>
       )}
       <p style={{ fontSize: 12, color: '#64748b', marginBottom: 16 }}>{tt.verification.caution}</p>

@@ -1,6 +1,7 @@
 import { authedFetch } from '../lib/apiClient.js';
 import { operationContext } from '../lib/operationContext.js';
-import { renderOspInline } from '../utils/safeMarkdown.js';
+import AiText from './AiText.jsx';
+import { markdownToPlainText } from '../utils/markdown/plain.js';
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -12,7 +13,6 @@ import { useLanguage } from '../i18n/LanguageContext.jsx';
 import t from '../data/translations.js';
 import certifiers from '../data/certifiers.js';
 import { SUBSTANCES, calculateStateFee, FEE_TIERS } from '../data/wizard-steps.js';
-import { exportOSPtoWord } from '../utils/export.js';
 import { saveToStorage, loadFromStorage } from '../utils/storage.js';
 import { debouncedSync } from '../lib/db.js';
 import { CERTIFIER_TEMPLATES } from '../data/ospTemplates.js';
@@ -83,44 +83,6 @@ async function callClaude(messages, assistant) {
   return data?.content?.[0]?.text || data?.choices?.[0]?.message?.content || '';
 }
 
-// ─── Markdown renderer ────────────────────────────────────────────────────────
-
-function inlineFmt(text) {
-  const parts = []; const re = /(\*\*.*?\*\*|\*.*?\*)/g; let last = 0; let m;
-  while ((m = re.exec(text)) !== null) {
-    if (m.index > last) parts.push(text.slice(last, m.index));
-    const r = m[0];
-    parts.push(r.startsWith('**')
-      ? <strong key={m.index}>{r.slice(2, -2)}</strong>
-      : <em key={m.index}>{r.slice(1, -1)}</em>);
-    last = m.index + r.length;
-  }
-  if (last < text.length) parts.push(text.slice(last));
-  return parts.length ? parts : text;
-}
-
-function MDView({ text }) {
-  if (!text) return null;
-  const lines = text.split('\n'); const els = []; let i = 0;
-  while (i < lines.length) {
-    const l = lines[i];
-    if (/^##\s/.test(l)) { els.push(<h4 key={i} style={{ fontSize: 13, fontWeight: 700, color: 'var(--u-navy)', margin: '12px 0 4px' }}>{l.replace(/^##\s/, '')}</h4>); }
-    else if (/^#\s/.test(l)) { els.push(<h3 key={i} style={{ fontSize: 14, fontWeight: 700, color: 'var(--u-navy)', margin: '14px 0 4px' }}>{l.replace(/^#\s/, '')}</h3>); }
-    else if (/^[-*•]\s/.test(l)) {
-      const items = [];
-      while (i < lines.length && /^[-*•]\s/.test(lines[i])) { items.push(<li key={i} style={{ marginBottom: 3 }}>{inlineFmt(lines[i].replace(/^[-*•]\s/, ''))}</li>); i++; }
-      els.push(<ul key={`ul${i}`} style={{ paddingLeft: 20, margin: '4px 0' }}>{items}</ul>); continue;
-    } else if (/^\d+\.\s/.test(l)) {
-      const items = [];
-      while (i < lines.length && /^\d+\.\s/.test(lines[i])) { items.push(<li key={i} style={{ marginBottom: 3 }}>{inlineFmt(lines[i].replace(/^\d+\.\s/, ''))}</li>); i++; }
-      els.push(<ol key={`ol${i}`} style={{ paddingLeft: 20, margin: '4px 0' }}>{items}</ol>); continue;
-    } else if (l.trim() === '') { els.push(<div key={i} style={{ height: 5 }} />); }
-    else { els.push(<p key={i} style={{ margin: '3px 0', lineHeight: 1.7 }}>{inlineFmt(l)}</p>); }
-    i++;
-  }
-  return <div style={{ fontSize: 13, color: '#374151' }}>{els}</div>;
-}
-
 // ─── Small shared UI ──────────────────────────────────────────────────────────
 
 function FF({ label, children, required, hint }) {
@@ -177,8 +139,8 @@ function AIField({ label, fieldKey, value, onChange, onGenerate, generating, hin
       {hint && <p style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6 }}>{hint}</p>}
       {value && !editing ? (
         <div style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 8, padding: '12px 16px', minHeight: 70 }}>
-          <MDView text={value} />
-          {generating && <span style={{ display: 'inline-block', width: 7, height: 13, background: 'var(--u-sky)', borderRadius: 2, marginLeft: 2, animation: 'osp-blink 0.8s step-end infinite' }} />}
+          <AiText text={value} variant="chat" />
+          {generating && <span aria-hidden="true" style={{ display: 'inline-block', width: 7, height: 13, background: 'var(--u-sky)', borderRadius: 2, marginLeft: 2, animation: 'osp-blink 0.8s step-end infinite' }} />}
         </div>
       ) : (
         <textarea
@@ -661,7 +623,7 @@ function SectionForm({ kind, sec, formData, update, updateMany, generating, onGe
 
 // ─── STEP 3 — Generate & Export ───────────────────────────────────────────────
 
-function GenerateStep({ formData, selectedTemplate, customFile, generating, generatedOSP, genError, onGenerate, onExport, exporting, exported, onBack, lang }) {
+function GenerateStep({ formData, selectedTemplate, customFile, generating, generatedOSP, planStale, genError, onGenerate, onExport, exporting, exported, onBack, lang }) {
   const color = customFile ? '#0284c7' : (selectedTemplate?.color || 'var(--u-navy)');
   const canGenerate = !generating;
 
@@ -718,6 +680,11 @@ function GenerateStep({ formData, selectedTemplate, customFile, generating, gene
       {/* Preview */}
       {generatedOSP && (
         <>
+          {planStale && (
+            <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 8, background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', fontSize: 13, marginBottom: 14 }}>
+              <AlertCircle size={14} /> You changed details after this plan was written. Regenerate to include them; the Word file uses the plan as shown.
+            </div>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
             <motion.button onClick={onExport} disabled={exporting} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
               style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 8, border: 'none', background: exported ? '#1B6B2E' : exporting ? '#94a3b8' : 'var(--u-navy)', color: 'white', fontSize: 14, fontWeight: 700, cursor: exporting ? 'not-allowed' : 'pointer' }}>
@@ -735,7 +702,7 @@ function GenerateStep({ formData, selectedTemplate, customFile, generating, gene
                 {selectedTemplate ? `${selectedTemplate.name} Format · ` : ''}{formData.operationName || 'Your Operation'} · California
               </p>
             </div>
-            <div style={{ padding: '28px 32px' }}><OSPRenderer text={generatedOSP} /></div>
+            <div style={{ padding: '28px 32px' }}><AiText text={generatedOSP} headingStart={3} /></div>
           </div>
         </>
       )}
@@ -751,21 +718,6 @@ function GenerateStep({ formData, selectedTemplate, customFile, generating, gene
   );
 }
 
-function OSPRenderer({ text }) {
-  const lines = text.split('\n');
-  return (
-    <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 14, lineHeight: 1.75, color: '#1e293b' }}>
-      {lines.map((line, i) => {
-        if (/^##\s/.test(line)) return <h3 key={i} style={{ fontSize: 13, fontWeight: 700, color: 'var(--u-navy)', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 28, marginBottom: 10, paddingBottom: 8, borderBottom: '2px solid #e2e8f0' }}>{line.replace(/^##\s/, '')}</h3>;
-        if (/^#\s/.test(line)) return <h2 key={i} style={{ fontFamily: 'Lora, serif', fontSize: 18, color: 'var(--u-navy)', marginTop: 32, marginBottom: 10 }}>{line.replace(/^#\s/, '')}</h2>;
-        if (/^[-*]\s/.test(line)) return <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 4, paddingLeft: 10 }}><span style={{ color: '#94a3b8' }}>•</span><span dangerouslySetInnerHTML={{ __html: renderOspInline(line.replace(/^[-*]\s/, '')) }} /></div>;
-        if (line.trim() === '') return <div key={i} style={{ height: 7 }} />;
-        return <p key={i} style={{ margin: '0 0 5px' }} dangerouslySetInnerHTML={{ __html: renderOspInline(line) }} />;
-      })}
-    </div>
-  );
-}
-
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function OSPGenerator({ profile, onUpdateProfile, onNavigate, userId }) {
@@ -777,6 +729,7 @@ export default function OSPGenerator({ profile, onUpdateProfile, onNavigate, use
   const [fileError, setFileError] = useState('');
   const [generating, setGenerating] = useState(false);
   const [generatedOSP, setGeneratedOSP] = useState('');
+  const [planStale, setPlanStale] = useState(false);
   const [genError, setGenError] = useState('');
   const [exporting, setExporting] = useState(false);
   const [exported, setExported] = useState(false);
@@ -807,6 +760,7 @@ export default function OSPGenerator({ profile, onUpdateProfile, onNavigate, use
 
   const update = (key, val) => {
     const next = { ...formData, [key]: val };
+    setPlanStale(true);
     setFormData(next);
     saveToStorage('orgpath_osp_form', next);
     if (onUpdateProfile) onUpdateProfile(next);
@@ -815,6 +769,7 @@ export default function OSPGenerator({ profile, onUpdateProfile, onNavigate, use
 
   const updateMany = (fields) => {
     const next = { ...formData, ...fields };
+    setPlanStale(true);
     setFormData(next);
     saveToStorage('orgpath_osp_form', next);
     if (onUpdateProfile) onUpdateProfile(next);
@@ -847,11 +802,12 @@ export default function OSPGenerator({ profile, onUpdateProfile, onNavigate, use
         [{ role: 'user', content: AI_PROMPTS[fieldKey] || `Provide guidance for ${fieldKey} in an organic system plan.` }],
         (chunk) => {
           aiRef.current += chunk;
-          setFormData(prev => ({ ...prev, [fieldKey]: aiRef.current }));
+          setFormData(prev => ({ ...prev, [fieldKey]: markdownToPlainText(aiRef.current) }));
         },
         { mode: 'osp_field', lang, context: operationContext(formData) }
       );
-      const final = aiRef.current;
+      const final = markdownToPlainText(aiRef.current);
+      setPlanStale(true);
       setFormData(prev => {
         const next = { ...prev, [fieldKey]: final };
         saveToStorage('orgpath_osp_form', next);
@@ -866,6 +822,7 @@ export default function OSPGenerator({ profile, onUpdateProfile, onNavigate, use
     setGenerating(true);
     setGenError('');
     setGeneratedOSP('');
+    setPlanStale(false);
     try {
       let userContent;
       if (customFile) {
@@ -923,7 +880,8 @@ Use markdown: ## for section headings, **bold** for field labels, bullet lists f
   const handleExport = async () => {
     setExporting(true);
     try {
-      await exportOSPtoWord({ ...formData, practices: generatedOSP || formData.practices }, lang);
+      const { exportOSPtoWord } = await import('../utils/export.js');
+      await exportOSPtoWord(formData, lang, generatedOSP);
       setExported(true);
       setTimeout(() => setExported(false), 3000);
     } catch (err) { console.error(err); }
@@ -986,7 +944,7 @@ Use markdown: ## for section headings, **bold** for field labels, bullet lists f
           {wizStep === 'generate' && (
             <GenerateStep
               formData={formData} selectedTemplate={selectedTemplate} customFile={customFile}
-              generating={generating} generatedOSP={generatedOSP}
+              generating={generating} generatedOSP={generatedOSP} planStale={planStale}
               genError={genError} onGenerate={handleGenerate}
               onExport={handleExport} exporting={exporting} exported={exported}
               onBack={() => setWizStep('fill')} lang={lang}

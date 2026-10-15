@@ -1,4 +1,5 @@
 import { authedFetch } from '../lib/apiClient.js';
+import AiText from './AiText.jsx';
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, Circle, Sparkles, DollarSign, ExternalLink, ChevronDown, ChevronRight, Download, AlertCircle } from 'lucide-react';
@@ -165,6 +166,7 @@ export default function OCCSPAssistant({ profile, userId }) {
   const [inspectionFees, setInspectionFees] = useState('');
   const [otherFees, setOtherFees] = useState('');
   const [aiOutput, setAiOutput] = useState('');
+  const [aiError, setAiError] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const aiRef = useRef('');
 
@@ -195,6 +197,7 @@ export default function OCCSPAssistant({ profile, userId }) {
   const calculateWithJimmy = async () => {
     setAiLoading(true);
     setAiOutput('');
+    setAiError('');
     aiRef.current = '';
     const prompt = `A California organic farmer wants to apply for OCCSP reimbursement. Calculate their estimated reimbursement and provide specific application advice.
 
@@ -206,24 +209,20 @@ Inspection Fees: $${inspectionFees || 0}
 Other Eligible Fees: $${otherFees || 0}
 Total Eligible Costs: $${totalCosts.toFixed(2)}
 
-Please provide:
-1. ESTIMATED REIMBURSEMENT CALCULATION
-   - 75% of eligible costs = $${(totalCosts * 0.75).toFixed(2)}
-   - Maximum cap: $750 per certification
-   - Estimated reimbursement: $${maxReimbursement.toFixed(2)}
+Write the answer as a short document with these sections, each under its own ## heading:
+- Estimated Reimbursement: show the calculation. 75% of eligible costs = $${(totalCosts * 0.75).toFixed(2)}, the maximum cap is $750 per certification, so the estimated reimbursement is $${maxReimbursement.toFixed(2)}.
+- Tips for This Operation: tips based on the operation type and certifier.
+- Common Mistakes to Avoid: mistakes to avoid when applying.
+- Recommended Timeline: when to apply, based on their certification cycle.
+- Multiple Certifications: whether they could be eligible for more than one (operations can get up to $750 per certification).
 
-2. TIPS FOR THIS SPECIFIC OPERATION (based on type and certifier)
-3. COMMON MISTAKES TO AVOID when applying
-4. TIMELINE RECOMMENDATION (when to apply based on their certification cycle)
-5. IF ELIGIBLE FOR MULTIPLE CERTIFICATIONS (operations can get up to $750 per cert)
-
-Be specific and helpful. Format clearly with headers.${lang === 'es' ? '\n\nRespond entirely in Spanish.' : ''}`;
+Be specific and helpful.${lang === 'es' ? '\n\nRespond entirely in Spanish.' : ''}`;
 
     await streamClaude(
       [{ role: 'user', content: prompt }],
       { mode: 'occsp', lang },
       (chunk) => { aiRef.current += chunk; setAiOutput(aiRef.current); },
-      (err) => setAiOutput(`[Error: ${err}]`)
+      setAiError
     );
     setAiLoading(false);
   };
@@ -341,10 +340,11 @@ Be specific and helpful. Format clearly with headers.${lang === 'es' ? '\n\nResp
           {aiLoading ? (lang === 'es' ? 'Analizando...' : 'Analyzing...') : tx.calcBtn}
         </button>
 
+        {aiError && <div role="alert" style={{ marginTop: 18, padding: 12, background: '#fee2e2', borderRadius: 10, color: '#991b1b', fontSize: 13 }}>[Error: {aiError}]</div>}
         {aiOutput && (
-          <div style={{ marginTop: 18, padding: 16, background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 13, lineHeight: 1.7, whiteSpace: 'pre-wrap', maxHeight: 400, overflowY: 'auto' }}>
-            {aiOutput}
-            {aiLoading && <span style={{ animation: 'caretBlink 0.8s step-end infinite' }}>▋</span>}
+          <div style={{ marginTop: 18, padding: 16, background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0', maxHeight: 400, overflowY: 'auto' }}>
+            <AiText text={aiOutput} variant="chat" />
+            {aiLoading && <span aria-hidden="true" style={{ animation: 'caretBlink 0.8s step-end infinite' }}>▋</span>}
           </div>
         )}
       </div>

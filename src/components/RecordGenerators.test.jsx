@@ -6,7 +6,10 @@ import { renderWithLang } from './records/testUtils.jsx';
 
 vi.mock('../lib/reportData.js', () => ({ listRecordsForReport: vi.fn() }));
 vi.mock('../lib/apiClient.js', () => ({ authedFetch: vi.fn() }));
+vi.mock('file-saver', () => ({ saveAs: vi.fn() }));
 const { listRecordsForReport } = await import('../lib/reportData.js');
+const { authedFetch } = await import('../lib/apiClient.js');
+const { saveAs } = await import('file-saver');
 const { default: RecordGenerators } = await import('./RecordGenerators.jsx');
 
 const farm = { id: 'farm-1', name: 'Palo Verde Farm' };
@@ -76,5 +79,65 @@ describe('Draft Documents', () => {
     renderPage({}, 'es');
     expect(screen.getByRole('heading', { level: 1, name: 'Borradores de Documentos' })).toBeTruthy();
     expect(screen.getByText(/Son borradores hechos con IA/)).toBeTruthy();
+  });
+});
+
+describe('Soil Health Assessment: the written draft', () => {
+  const DRAFT = '## 1. Operation Identification\n\n**Field:** North Block\n\n## 3. Soil Health Indicators\n\n- Structure: good\n- Biology: active\n\n| Indicator | Rating |\n|---|---|\n| pH | 6.5 |';
+  const streamed = (text) => {
+    const bytes = new TextEncoder().encode(`data: ${JSON.stringify({ delta: { text } })}\n\ndata: [DONE]\n\n`);
+    let sent = false;
+    const read = async () => (sent ? { done: true } : ((sent = true), { done: false, value: bytes }));
+    return { ok: true, body: { getReader: () => ({ read }) } };
+  };
+
+  beforeEach(() => {
+    authedFetch.mockReset().mockResolvedValue(streamed(DRAFT));
+    saveAs.mockReset();
+  });
+
+  async function generate(lang = 'en') {
+    renderPage({}, lang);
+    await userEvent.click(screen.getByRole('button', { name: lang === 'es' ? /Generar Evaluación con Jimmy/ : /Generate Assessment with Jimmy/ }));
+    await screen.findByRole('heading', { name: '1. Operation Identification' });
+  }
+
+  it('shows the draft as a document, not as raw markdown', async () => {
+    await generate();
+    expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Structure: good', 'Biology: active']);
+    expect(screen.getByRole('table')).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/\*\*|## /);
+  });
+
+  it('asks for numbered sections, each under its own heading', async () => {
+    await generate();
+    const prompt = JSON.parse(authedFetch.mock.calls[0][1].body).messages[0].content;
+    expect(prompt).toMatch(/each under its own ## heading/);
+    expect(prompt).not.toMatch(/OPERATION IDENTIFICATION HEADER|Format as a professional compliance document/);
+  });
+
+  it('downloads a Word document named for the date', async () => {
+    await generate();
+    await userEvent.click(screen.getByRole('button', { name: /Download Word/ }));
+    await waitFor(() => expect(saveAs).toHaveBeenCalledTimes(1));
+    const [blob, name] = saveAs.mock.calls[0];
+    expect(name).toMatch(/^soil-assessment-\d{4}-\d{2}-\d{2}\.docx$/);
+    expect(blob.size).toBeGreaterThan(1000);
+  });
+
+  it('copies clean text', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole('button', { name: /Generate Assessment with Jimmy/ }));
+    await screen.findByRole('heading', { name: '1. Operation Identification' });
+    await user.click(screen.getByRole('button', { name: /Copy/ }));
+    const copied = await navigator.clipboard.readText();
+    expect(copied).toContain('\u2022 Structure: good');
+    expect(copied).not.toMatch(/\*\*|##/);
+  });
+
+  it('offers the download in Spanish', async () => {
+    await generate('es');
+    expect(screen.getByRole('button', { name: /Descargar Word/ })).toBeTruthy();
   });
 });

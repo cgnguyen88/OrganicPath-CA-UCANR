@@ -1,5 +1,6 @@
 import { authedFetch } from '../../lib/apiClient.js';
 import { useMemo, useState } from 'react';
+import AiText from '../AiText.jsx';
 import { Bell, ShieldCheck, AlertCircle, ExternalLink, RefreshCw, CheckCircle } from 'lucide-react';
 import { materialsForPrompt } from '../../domain/records/materials.js';
 import { todayLocalIso } from '../../domain/records/seasons.js';
@@ -58,15 +59,12 @@ ${inputList}
 RECENT NATIONAL LIST UPDATES (§205.601–606):
 ${updatesText}
 
-For each input, assess:
-1. Whether any recent National List change affects it (flag with ✗ AFFECTED, ⚠ REVIEW, or ✓ CLEAR)
-2. What specific action the grower needs to take, if any
-3. Which NOP section applies
+Present the review as a Markdown table with one row per input and these columns: Material, Status, Action needed, NOP section. Status says whether any recent National List change affects the input: Affected, Review or Clear. Write "None" under Action needed where nothing is required.
 
-End with a summary: total inputs reviewed, how many need attention, and the single most urgent action item.
+Then add a "## Summary" section with the total inputs reviewed, how many need attention, and the single most urgent action item.
 
 Use only the inputs listed above. Do not invent products, suppliers or dates; where something is not recorded, say so.
-Be concise — one line per material is enough unless there's a specific concern.${lang === 'es' ? '\n\nRespond entirely in Spanish.' : ''}`,
+Be concise: one row per material is enough unless there is a specific concern.${lang === 'es' ? '\n\nRespond entirely in Spanish.' : ''}`,
           }],
           mode: 'national_list_review',
           stream: false,
@@ -156,9 +154,7 @@ Be concise — one line per material is enough unless there's a specific concern
                 <ShieldCheck color="#10b981" size={18} />
                 <span style={{ fontSize: 14, fontWeight: 600 }}>Scan Complete</span>
               </div>
-              <pre style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', color: '#1e293b', fontFamily: 'inherit' }}>
-                {scanResult}
-              </pre>
+              <AiText text={scanResult} variant="chat" />
             </div>
           )}
 

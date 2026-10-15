@@ -1,6 +1,6 @@
 import { authedFetch } from '../lib/apiClient.js';
 import { dropLeadingAssistantTurns, describeChatError } from '../lib/chatMessages.js';
-import { renderChatMarkdown } from '../utils/safeMarkdown.js';
+import AiText from './AiText.jsx';
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, ChevronDown, Carrot, Paperclip, FileText, Image, File, AlertCircle } from 'lucide-react';
@@ -445,10 +445,9 @@ export default function ExpandableChat({ profile }) {
                             ))}
                           </div>
                         ) : (
-                          <div
-                            style={{ whiteSpace: 'pre-wrap' }}
-                            dangerouslySetInnerHTML={{ __html: renderChatMarkdown(msg.content) }}
-                          />
+                          msg.role === 'assistant'
+                            ? <AiText text={msg.content} variant="chat" />
+                            : <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}>{msg.content}</div>
                         )}
                       </div>
                     )}

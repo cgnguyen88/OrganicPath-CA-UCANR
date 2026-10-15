@@ -53,9 +53,13 @@ describe('substanceAuditPrompt', () => {
 
   it('keeps the sections the audit has always had', () => {
     const prompt = substance();
-    for (const section of ['AUDIT HEADER & SCOPE', 'METHODOLOGY', 'INPUT INVENTORY REVIEW TABLE', 'PROHIBITED SUBSTANCE SCREENING CHECKLIST', 'STORAGE & HANDLING REVIEW', 'SUPPLIER VERIFICATION STATUS', 'APPLICATION RECORDS COMPLIANCE', 'FINDINGS SUMMARY', 'CORRECTIVE ACTIONS REQUIRED', 'AUDITOR CERTIFICATION']) {
+    for (const section of ['Audit Header & Scope', 'Methodology', 'Input Inventory Review Table', 'Prohibited Substance Screening Checklist', 'Storage & Handling Review', 'Supplier Verification Status', 'Application Records Compliance', 'Findings Summary', 'Corrective Actions Required', 'Auditor Certification']) {
       expect(prompt, section).toContain(section);
     }
+  });
+
+  it('asks for each section under its own heading, so the document can be laid out', () => {
+    expect(substance()).toMatch(/each under its own ## heading/);
   });
 
   it('carries the rules against inventing, in every prompt', () => {
@@ -125,7 +129,8 @@ describe('auditTrailPrompt', () => {
 
   it('keeps the sections of the recordkeeping system', () => {
     const prompt = trail();
-    for (const section of ['SYSTEM OVERVIEW & REGULATORY BASIS', 'MASTER RECORD INDEX', 'RECORD RETENTION SCHEDULE', 'INSPECTION READINESS CHECKLIST']) expect(prompt, section).toContain(section);
+    for (const section of ['System Overview & Regulatory Basis', 'Master Record Index', 'Record Retention Schedule', 'Inspection Readiness Checklist']) expect(prompt, section).toContain(section);
+    expect(prompt).toMatch(/each under its own ## heading/);
   });
 
   it('carries the rules against inventing, and asks for Spanish only in a Spanish app', () => {

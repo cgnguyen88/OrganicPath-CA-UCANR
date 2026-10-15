@@ -8,6 +8,8 @@ import t from '../data/translations.js';
 import certifiers from '../data/certifiers.js';
 import { SUBSTANCES, calculateStateFee, FEE_TIERS } from '../data/wizard-steps.js';
 import { saveToStorage, loadFromStorage } from '../utils/storage.js';
+import { markdownToPlainText } from '../utils/markdown/plain.js';
+import AiText from './AiText.jsx';
 import { debouncedSync } from '../lib/db.js';
 
 const STEP_COLORS = ['#3AA8E4', '#FDBD10', '#1B6B2E', '#005FAE', '#7c3aed', '#bd8e00', '#002D54'];
@@ -135,7 +137,7 @@ export default function CertificationWizard({ profile, onUpdateProfile, onNaviga
       (chunk) => {
         aiTextRef.current += chunk;
         // Update textarea in real-time so user sees streaming output
-        setFormData(prev => ({ ...prev, [field]: aiTextRef.current }));
+        setFormData(prev => ({ ...prev, [field]: markdownToPlainText(aiTextRef.current) }));
       },
       { mode: 'wizard_suggest', lang, context: operationContext(formData) }
     );
@@ -143,7 +145,7 @@ export default function CertificationWizard({ profile, onUpdateProfile, onNaviga
     // Persist final value and sync to operation_data so OSP Generator
     // sees the new content immediately (not only after Finish is clicked)
     setFormData(prev => {
-      const next = { ...prev, [field]: aiTextRef.current };
+      const next = { ...prev, [field]: markdownToPlainText(aiTextRef.current) };
       const progress = { step, data: next };
       saveToStorage('orgpath_wizard_progress', progress);
       debouncedSync(userId, 'wizard_progress', progress);
@@ -442,70 +444,6 @@ function Step2({ formData, update, tx }) {
   );
 }
 
-function renderOSPMarkdown(text) {
-  if (!text) return null;
-  const lines = text.split('\n');
-  const elements = [];
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i];
-    // H2 / H3 headers
-    if (/^###\s/.test(line)) {
-      elements.push(<h4 key={i} style={{ fontSize: 13, fontWeight: 700, color: 'var(--u-navy)', marginTop: 14, marginBottom: 4 }}>{line.replace(/^###\s/, '')}</h4>);
-    } else if (/^##\s/.test(line)) {
-      elements.push(<h3 key={i} style={{ fontSize: 14, fontWeight: 700, color: 'var(--u-navy)', marginTop: 16, marginBottom: 4 }}>{line.replace(/^##\s/, '')}</h3>);
-    } else if (/^#\s/.test(line)) {
-      elements.push(<h3 key={i} style={{ fontSize: 15, fontWeight: 700, color: 'var(--u-navy)', marginTop: 16, marginBottom: 4 }}>{line.replace(/^#\s/, '')}</h3>);
-    // Numbered list items
-    } else if (/^\d+\.\s/.test(line)) {
-      const items = [];
-      while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
-        items.push(<li key={i} style={{ marginBottom: 4 }}>{formatInline(lines[i].replace(/^\d+\.\s/, ''))}</li>);
-        i++;
-      }
-      elements.push(<ol key={`ol-${i}`} style={{ paddingLeft: 20, margin: '6px 0', lineHeight: 1.7 }}>{items}</ol>);
-      continue;
-    // Bullet list items (-, *, •)
-    } else if (/^[-*•]\s/.test(line)) {
-      const items = [];
-      while (i < lines.length && /^[-*•]\s/.test(lines[i])) {
-        items.push(<li key={i} style={{ marginBottom: 4 }}>{formatInline(lines[i].replace(/^[-*•]\s/, ''))}</li>);
-        i++;
-      }
-      elements.push(<ul key={`ul-${i}`} style={{ paddingLeft: 20, margin: '6px 0', lineHeight: 1.7 }}>{items}</ul>);
-      continue;
-    // Blank line → spacer
-    } else if (line.trim() === '') {
-      elements.push(<div key={i} style={{ height: 6 }} />);
-    // Regular paragraph
-    } else {
-      elements.push(<p key={i} style={{ margin: '4px 0', lineHeight: 1.7 }}>{formatInline(line)}</p>);
-    }
-    i++;
-  }
-  return elements;
-}
-
-function formatInline(text) {
-  // Split on **bold** and *italic* markers and return mixed array
-  const parts = [];
-  const regex = /(\*\*.*?\*\*|\*.*?\*)/g;
-  let last = 0;
-  let match;
-  while ((match = regex.exec(text)) !== null) {
-    if (match.index > last) parts.push(text.slice(last, match.index));
-    const raw = match[0];
-    if (raw.startsWith('**')) {
-      parts.push(<strong key={match.index}>{raw.slice(2, -2)}</strong>);
-    } else {
-      parts.push(<em key={match.index}>{raw.slice(1, -1)}</em>);
-    }
-    last = match.index + raw.length;
-  }
-  if (last < text.length) parts.push(text.slice(last));
-  return parts.length ? parts : text;
-}
-
 function Step3({ formData, update, tx, isGenerating, generateSuggestion }) {
   const f = tx.fields;
   const aiFields = ['practices', 'inputs', 'monitoring', 'buffers'];
@@ -563,9 +501,9 @@ function Step3({ formData, update, tx, isGenerating, generateSuggestion }) {
                 padding: '14px 18px', fontSize: 13, color: '#374151', lineHeight: 1.7,
                 minHeight: 80,
               }}>
-                {renderOSPMarkdown(formData[field])}
+                <AiText text={formData[field]} variant="chat" />
                 {isThisGenerating && (
-                  <span style={{ display: 'inline-block', width: 8, height: 14, background: 'var(--u-sky)', borderRadius: 2, marginLeft: 2, animation: 'blink 0.8s step-end infinite' }} />
+                  <span aria-hidden="true" style={{ display: 'inline-block', width: 8, height: 14, background: 'var(--u-sky)', borderRadius: 2, marginLeft: 2, animation: 'blink 0.8s step-end infinite' }} />
                 )}
               </div>
             )}

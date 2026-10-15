@@ -1,11 +1,13 @@
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Download, Copy, CheckCheck, Leaf, FlaskConical, Archive } from 'lucide-react';
+import { Sparkles, Leaf, FlaskConical, Archive } from 'lucide-react';
 import { useLanguage } from '../i18n/LanguageContext.jsx';
 import streamClaude from './generators/streamClaude.js';
 import SubstanceAuditForm from './generators/SubstanceAuditForm.jsx';
 import AuditTrailForm from './generators/AuditTrailForm.jsx';
 import { generatorsText } from './generators/text.js';
+import useAiOutputActions from './useAiOutputActions.js';
+import OutputPanel from './generators/OutputPanel.jsx';
 
 const TABS = [
   { id: 'soil', icon: Leaf, labelEn: 'Soil Health Assessment', labelEs: 'Evaluación de Salud del Suelo', color: '#1B6B2E' },
@@ -27,9 +29,13 @@ function SoilHealthForm({ lang, profile }) {
     concerns: '',
   });
   const [output, setOutput] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
   const outputRef = useRef('');
+  const tt = generatorsText(lang);
+  const actions = useAiOutputActions(output, () => ({
+    title: tt.docTitles.soil, subtitle: [form.fieldName, form.assessmentDate].filter(Boolean).join(' · '), markdown: output, lang, filename: `soil-assessment-${form.assessmentDate}`,
+  }));
 
   const labels = lang === 'es' ? {
     fieldName: 'Nombre del Campo / Operación', assessmentDate: 'Fecha de Evaluación',
@@ -48,6 +54,7 @@ function SoilHealthForm({ lang, profile }) {
   const generate = async () => {
     setLoading(true);
     setOutput('');
+    setError('');
     outputRef.current = '';
     const prompt = `Generate a complete, professional Soil Health Assessment Record for a California organic operation.
 
@@ -63,38 +70,24 @@ Operation Details:
 - Last Amendment Applied: ${form.lastAmendment || 'None recorded'}
 - Known Compliance Concerns: ${form.concerns || 'None'}
 
-Generate a complete assessment record with these sections:
-1. OPERATION IDENTIFICATION HEADER
-2. FIELD CONDITIONS SUMMARY (physical observations, drainage, compaction indicators)
-3. SOIL HEALTH INDICATORS EVALUATION (rate each: structure, biology, chemistry, water-holding capacity)
-4. ORGANIC MATTER & NUTRIENT MANAGEMENT REVIEW (NOP §205.203 compliance)
-5. PROHIBITED SUBSTANCE RISK ASSESSMENT (adjacent land risks, contamination pathways)
-6. SOIL BUILDING RECOMMENDATIONS (cover crops, compost, tillage practices)
-7. TESTING RECOMMENDATIONS (lab tests needed, frequency)
-8. COMPLIANCE STATUS (NOP §205.203 checklist)
-9. ASSESSOR CERTIFICATION BLOCK
+Write a complete assessment record with these sections, each under its own ## heading (keep the numbers):
+1. Operation Identification
+2. Field Conditions Summary (physical observations, drainage, compaction indicators)
+3. Soil Health Indicators Evaluation (rate each: structure, biology, chemistry, water-holding capacity)
+4. Organic Matter & Nutrient Management Review (NOP §205.203 compliance)
+5. Prohibited Substance Risk Assessment (adjacent land risks, contamination pathways)
+6. Soil Building Recommendations (cover crops, compost, tillage practices)
+7. Testing Recommendations (lab tests needed, frequency)
+8. Compliance Status (NOP §205.203 checklist)
+9. Assessor Certification (a blank signature block)
 
-Format as a professional compliance document. Use today's date. Include specific NOP regulation references.${lang === 'es' ? '\n\nRespond entirely in Spanish.' : ''}`;
+Use today's date. Include specific NOP regulation references.${lang === 'es' ? '\n\nRespond entirely in Spanish.' : ''}`;
 
     await streamClaude(prompt, (chunk) => {
       outputRef.current += chunk;
       setOutput(outputRef.current);
-    }, (err) => setOutput(`[Error: ${err}]`));
+    }, setError);
     setLoading(false);
-  };
-
-  const copy = () => {
-    navigator.clipboard.writeText(output);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const download = () => {
-    const blob = new Blob([output], { type: 'text/plain' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `soil-assessment-${form.assessmentDate}.txt`;
-    a.click();
   };
 
   const input = (key) => ({
@@ -108,7 +101,7 @@ Format as a professional compliance document. Use today's date. Include specific
   });
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: output ? '1fr 1fr' : '1fr', gap: 20 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: output || error ? 'minmax(0, 1fr) minmax(0, 1fr)' : '1fr', gap: 20 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {Object.keys(labels).filter(k => k !== 'generate').map(key => (
           <div key={key}>
@@ -136,27 +129,7 @@ Format as a professional compliance document. Use today's date. Include specific
         </button>
       </div>
 
-      {output && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button onClick={copy} style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid #e2e8f0', background: 'white', cursor: 'pointer', fontSize: 12, display: 'flex', gap: 5, alignItems: 'center' }}>
-              {copied ? <CheckCheck size={13} color="#1B6B2E" /> : <Copy size={13} />}
-              {copied ? 'Copied!' : 'Copy'}
-            </button>
-            <button onClick={download} style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: '#1B6B2E', color: 'white', cursor: 'pointer', fontSize: 12, display: 'flex', gap: 5, alignItems: 'center' }}>
-              <Download size={13} /> Download
-            </button>
-          </div>
-          <div style={{
-            flex: 1, padding: 14, background: '#f8fafc', borderRadius: 10, border: '1.5px solid #e2e8f0',
-            overflowY: 'auto', maxHeight: 560, fontSize: 12, lineHeight: 1.7, whiteSpace: 'pre-wrap',
-            fontFamily: 'ui-monospace, monospace', color: '#1e293b',
-          }}>
-            {output}
-            {loading && <span style={{ animation: 'caretBlink 0.8s step-end infinite' }}>▋</span>}
-          </div>
-        </div>
-      )}
+      {(output || error) && <OutputPanel output={output} loading={loading} error={error} color="#1B6B2E" actions={actions} labels={tt} />}
     </div>
   );
 }
