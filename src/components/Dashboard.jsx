@@ -15,18 +15,19 @@ export default function Dashboard({ user, onNavigate, profile }) {
   const { lang } = useLanguage();
   const tx = t[lang].dashboard;
 
-  const FEATURES = [
-    ...(profile?.certificationStatus === 'certified'
-      ? [
-          { id: 'maintenance', icon: ShieldCheck, color: '#1B6B2E', accent: '#e8f5e9' },
-          { id: 'tracker',     icon: ListChecks,  color: '#002D54', accent: '#e5f0fa' },
-        ]
-      : [
-          { id: 'osp',         icon: FileText,       color: '#1B6B2E', accent: '#e8f5e9' },
-          { id: 'eligibility', icon: ClipboardCheck, color: '#3AA8E4', accent: '#e5f4fd' },
-        ]),
-    { id: 'osp',         icon: FileText,       color: '#FDBD10', accent: '#fff8e1', textColor: '#bd8e00' },
-  ];
+  // Three tools for where the farm is: each appears once (the OSP Generator used to be added twice for
+  // farms working toward certification).
+  const FEATURES = profile?.certificationStatus === 'certified'
+    ? [
+        { id: 'maintenance', icon: ShieldCheck, color: '#1B6B2E', accent: '#e8f5e9' },
+        { id: 'tracker',     icon: ListChecks,  color: '#002D54', accent: '#e5f0fa' },
+        { id: 'osp',         icon: FileText,    color: '#FDBD10', accent: '#fff8e1', textColor: '#bd8e00' },
+      ]
+    : [
+        { id: 'osp',         icon: FileText,       color: '#1B6B2E', accent: '#e8f5e9' },
+        { id: 'eligibility', icon: ClipboardCheck, color: '#3AA8E4', accent: '#e5f4fd' },
+        { id: 'tracker',     icon: ListChecks,     color: '#FDBD10', accent: '#fff8e1', textColor: '#bd8e00' },
+      ];
 
   const hasProfile = profile && profile.operationName;
 
