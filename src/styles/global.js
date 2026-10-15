@@ -68,6 +68,7 @@ export const GLOBAL_CSS = `
      A translucent, blurred panel floating over a slow color backdrop, with a bright rim and a soft
      inner glow. Solid fallbacks below for no backdrop-filter, reduced transparency and reduced motion. */
   .side-menu {
+    width: 290px; min-width: 290px; height: 100vh; height: 100dvh; flex-shrink: 0;
     --menu-text: rgba(255,255,255,0.92); --menu-muted: rgba(255,255,255,0.72);
     --glass-fill: linear-gradient(155deg, rgba(14,38,64,0.55) 0%, rgba(5,18,34,0.62) 55%, rgba(8,24,42,0.58) 100%);
     --glass-rim: rgba(255,255,255,0.13); --glass-shine: rgba(255,255,255,0.20);
@@ -202,6 +203,94 @@ export const GLOBAL_CSS = `
   }
   @media (prefers-reduced-motion: reduce) {
     .nav-item, .menu-segment button, .menu-icon-button, .nav-group-header, .nav-section-header, .nav-item svg { transition: none; }
+  }
+
+
+  /* ── App frame: menu + page; on a phone a top bar and a slide-out menu ───────────────────── */
+  .app-shell { display: flex; height: 100vh; height: 100dvh; overflow: hidden; }
+  .app-main { flex: 1; min-width: 0; overflow-y: auto; background: var(--cream); position: relative; -webkit-overflow-scrolling: touch; }
+  .app-shell--phone { flex-direction: column; }
+
+  .mobile-topbar {
+    position: relative; z-index: 20; flex-shrink: 0; display: flex; align-items: center; gap: 10px;
+    min-height: 56px; padding: 8px 14px; padding-top: max(8px, env(safe-area-inset-top));
+    background: linear-gradient(165deg, #010c19 0%, #031a31 100%); color: #fff;
+    box-shadow: 0 2px 10px rgba(0,10,25,0.25);
+  }
+  .mobile-topbar .menu-mark { width: 28px; height: 28px; }
+  .mobile-topbar-button {
+    display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-left: -6px;
+    border: 0; border-radius: 12px; background: transparent; color: #fff; cursor: pointer;
+  }
+  .mobile-topbar-button:focus-visible { outline: 2px solid #8fd0ff; outline-offset: 0; }
+  .mobile-topbar-title { flex: 1; min-width: 0; font: 600 16px/1.2 Lora, serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .side-menu--drawer {
+    position: fixed; top: 0; bottom: 0; left: 0; z-index: 1001; width: min(86vw, 320px); min-width: 0; height: 100%;
+    transform: translateX(-102%); visibility: hidden; box-shadow: none;
+    transition: transform .28s var(--glass-ease), visibility 0s linear .28s;
+    padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);
+  }
+  .side-menu--drawer.is-open { transform: none; visibility: visible; box-shadow: 8px 0 30px rgba(0,8,20,0.35); transition: transform .28s var(--glass-ease); }
+  .side-menu--drawer .nav-item, .side-menu--drawer .nav-section-header { min-height: 44px; font-size: 15px; }
+  .side-menu--drawer .menu-segment button { padding: 9px 14px; font-size: 13px; }
+  .side-menu--drawer .menu-icon-button { width: 40px; height: 40px; }
+  .menu-scrim { position: fixed; inset: 0; z-index: 1000; background: rgba(0,10,25,0.5); animation: fadeIn .2s ease; }
+  @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+  @media (prefers-reduced-motion: reduce) {
+    .side-menu--drawer { transition: none; }
+    .menu-scrim { animation: none; }
+  }
+
+
+  /* ── Phones ─────────────────────────────────────────────────────────────────────────────────
+     The pages are styled with inline styles, so these rules need !important, and where a page has no
+     class of its own they match what React writes into the style attribute ("grid-template-columns:
+     1fr 1fr", "padding: 40px"). */
+  @media (max-width: 767px) {
+    /* Every page: phone margins, and room at the bottom so the chat button never covers the last line. */
+    .app-shell--phone .app-main > :not(.page-bleed) { padding: 20px 16px 96px !important; }
+
+    /* The dashboard's photo runs edge to edge, so it is laid out here rather than by the page rule. */
+    .app-shell--phone .dashboard-hero { height: auto !important; min-height: 240px; padding: 28px 16px 24px !important; }
+    .app-shell--phone .dashboard-hero h1 { font-size: 28px !important; }
+    .app-shell--phone .dashboard-body { padding: 24px 16px 0 !important; }
+
+    /* Step bars show the current step by name and the others by number (their names stay for screen readers). */
+    .osp-steps .osp-step-label[data-current="false"] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+    /* A list beside its details becomes a strip of choices you swipe sideways, above the details. */
+    .code-subparts { flex-direction: column !important; gap: 12px !important; }
+    .code-subpart-list { width: auto !important; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+    .code-subpart-list > button { width: auto !important; flex: 0 0 auto; max-width: 180px; margin-bottom: 0 !important; }
+    .code-subparts > :last-child { min-width: 0; }
+
+    /* Columns that sit side by side on a computer are stacked. */
+    .app-main [style*="grid-template-columns: 1fr 1fr"],
+    .app-main [style*="grid-template-columns: repeat(3, 1fr)"],
+    .app-main [style*="grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)"],
+    .app-main [style*="minmax(340px"], .app-main [style*="minmax(330px"],
+    .app-main [style*="minmax(320px"], .app-main [style*="minmax(300px"] {
+      grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    /* Generous computer padding inside cards and panels becomes phone padding. */
+    .app-main [style*="padding: 40px"], .app-main [style*="padding: 32px"], .app-main [style*="padding: 28px"] { padding: 18px 16px !important; }
+
+    /* Page titles that suit a wide screen are scaled down. */
+    .app-main h1 { font-size: 24px !important; line-height: 1.25 !important; }
+
+    /* Form fields at 16px, so iPhones do not zoom in when one is tapped. */
+    .app-main input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), .app-main select, .app-main textarea,
+    .chat-panel textarea { font-size: 16px !important; }
+
+    /* Long words, links and codes wrap instead of pushing the page sideways ("break-word", not "anywhere",
+       so table columns are not squeezed until words break letter by letter). */
+    .app-main { overflow-wrap: break-word; }
+
+    /* Jimmy's chat: nearly full screen, above the keyboard, and its button tucked into the corner. */
+    .chat-panel { left: 8px !important; right: 8px !important; width: auto !important; bottom: 84px !important; height: min(560px, calc(100dvh - 96px)) !important; }
+    .chat-toggle { right: 16px !important; bottom: 16px !important; width: 54px !important; height: 54px !important; }
   }
 
   /* ── Reports: the page shown on screen, and what the browser prints or saves as PDF ───────── */

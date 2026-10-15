@@ -904,7 +904,7 @@ Use markdown: ## for section headings, **bold** for field labels, bullet lists f
       </div>
 
       {/* Step progress */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 28 }}>
+      <div className="osp-steps" style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 28 }}>
         {STEPS.map((s, i) => (
           <div key={s} style={{ display: 'flex', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', borderRadius: 20, background: wizStep === s ? 'var(--u-navy)' : STEPS.indexOf(wizStep) > i ? '#e8f5e9' : '#f1f5f9', cursor: STEPS.indexOf(wizStep) > i ? 'pointer' : 'default' }}
@@ -912,7 +912,7 @@ Use markdown: ## for section headings, **bold** for field labels, bullet lists f
               <span style={{ width: 20, height: 20, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: wizStep === s ? 'rgba(255,255,255,0.2)' : STEPS.indexOf(wizStep) > i ? '#1B6B2E' : '#cbd5e1', fontSize: 11, fontWeight: 700, color: wizStep === s ? 'white' : STEPS.indexOf(wizStep) > i ? 'white' : '#64748b' }}>
                 {STEPS.indexOf(wizStep) > i ? '✓' : i + 1}
               </span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: wizStep === s ? 'white' : STEPS.indexOf(wizStep) > i ? '#1B6B2E' : '#94a3b8' }}>{STEP_LABELS[i]}</span>
+              <span className="osp-step-label" data-current={wizStep === s} style={{ fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', color: wizStep === s ? 'white' : STEPS.indexOf(wizStep) > i ? '#1B6B2E' : '#94a3b8' }}>{STEP_LABELS[i]}</span>
             </div>
             {i < STEPS.length - 1 && <div style={{ width: 24, height: 2, background: STEPS.indexOf(wizStep) > i ? '#1B6B2E' : '#e2e8f0' }} />}
           </div>

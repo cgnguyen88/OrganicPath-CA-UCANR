@@ -294,7 +294,9 @@ export default function ExpandableChat({ profile }) {
           color: 'white',
           fontSize: 28,
         }}
-        className="no-print"
+        className="chat-toggle no-print"
+        aria-label={lang === 'es' ? (open ? 'Cerrar el chat con Jimmy' : 'Chatear con Jimmy') : (open ? 'Close chat with Jimmy' : 'Chat with Jimmy')}
+        aria-expanded={open}
       >
         <AnimatePresence mode="wait">
           <motion.div
@@ -327,7 +329,7 @@ export default function ExpandableChat({ profile }) {
               overflow: 'hidden',
               border: '1px solid #e2e8f0',
             }}
-            className="no-print"
+            className="chat-panel no-print"
           >
             {/* Header */}
             <div style={{

@@ -535,9 +535,9 @@ export default function FederalCodeGuide() {
 
       {/* BY SUBPART */}
       {tab === 'subparts' && (
-        <div style={{ display: 'flex', gap: 20 }}>
+        <div className="code-subparts" style={{ display: 'flex', gap: 20 }}>
           {/* Subpart list */}
-          <div style={{ width: 220, flexShrink: 0 }}>
+          <div className="code-subpart-list" style={{ width: 220, flexShrink: 0 }}>
             {SUBPARTS.map(sp => (
               <button key={sp.id} onClick={() => setActiveSubpart(sp.id)}
                 style={{

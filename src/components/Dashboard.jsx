@@ -32,9 +32,9 @@ export default function Dashboard({ user, onNavigate, profile }) {
   const hasProfile = profile && profile.operationName;
 
   return (
-    <div style={{ minHeight: '100vh', paddingBottom: 80 }}>
+    <div className="page-bleed" style={{ minHeight: '100vh', paddingBottom: 80 }}>
       {/* Hero */}
-      <div style={{
+      <div className="dashboard-hero" style={{
         position: 'relative',
         height: 340,
         background: `linear-gradient(to right, rgba(0,29,49,0.88), rgba(0,45,84,0.6)), url(${HERO_IMAGES[0]}) center/cover`,
@@ -86,7 +86,7 @@ export default function Dashboard({ user, onNavigate, profile }) {
         </div>
       </div>
 
-      <div style={{ padding: '40px 40px 0' }}>
+      <div className="dashboard-body" style={{ padding: '40px 40px 0' }}>
         {/* Feature Cards */}
         <h2 style={{ fontFamily: 'Lora, serif', fontSize: 22, color: 'var(--u-navy)', marginBottom: 20 }}>
           {lang === 'en' ? 'Certification Tools' : 'Herramientas de Certificación'}

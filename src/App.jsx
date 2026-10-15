@@ -3,7 +3,7 @@ import { supabase } from './lib/supabase.js';
 import { getProfile, upsertProfile, ensureMyFarm, getFarm } from './lib/db.js';
 import { saveToStorage, loadFromStorage } from './utils/storage.js';
 import AuthScreen from './components/AuthScreen.jsx';
-import Sidebar from './components/Sidebar.jsx';
+import AppShell from './components/AppShell.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import EligibilityChecker from './components/EligibilityChecker.jsx';
 import ComplianceTracker from './components/ComplianceTracker.jsx';
@@ -141,25 +141,23 @@ export default function App() {
     return <CertificationStatusGate onSelect={handleStatusSelect} />;
   }
 
-  return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-      <Sidebar
-        activePage={activePage}
-        onNavigate={setActivePage}
-        user={user}
-        farm={farm}
-        needsReviewCount={recordsMeta.needsReviewCount}
-        savedViews={recordsMeta.savedViews}
-        onLogout={handleLogout}
-        certificationStatus={profile.certificationStatus}
-        onChangeStatus={() => setForceGate(true)}
-        onSetStatus={(status) => {
-          updateProfile({ certificationStatus: status });
-          setActivePage(status === 'certified' ? 'maintenance' : 'dashboard');
-        }}
-      />
+  const sidebar = {
+    user,
+    farm,
+    needsReviewCount: recordsMeta.needsReviewCount,
+    savedViews: recordsMeta.savedViews,
+    onLogout: handleLogout,
+    certificationStatus: profile.certificationStatus,
+    onChangeStatus: () => setForceGate(true),
+    onSetStatus: (status) => {
+      updateProfile({ certificationStatus: status });
+      setActivePage(status === 'certified' ? 'maintenance' : 'dashboard');
+    },
+  };
 
-      <main style={{ flex: 1, overflowY: 'auto', background: 'var(--cream)', position: 'relative' }}>
+  return (
+    <>
+      <AppShell activePage={activePage} onNavigate={setActivePage} sidebar={sidebar}>
         {activePage === 'dashboard' && <Dashboard user={user} onNavigate={setActivePage} profile={profile} />}
         {activePage === 'maintenance' && <MaintenanceModule profile={profile} userId={user?.id} farm={farm} onNavigate={setActivePage} />}
         {activePage === 'eligibility' && <EligibilityChecker onNavigate={setActivePage} onUpdateProfile={updateProfile} />}
@@ -188,9 +186,9 @@ export default function App() {
         {activePage === 'omriGuide' && <OMRIGuide />}
         {activePage === 'foodSafety' && <FoodSafetyGuide />}
         {activePage === 'federalCode' && <FederalCodeGuide />}
-      </main>
+      </AppShell>
 
       <ExpandableChat profile={profile} />
-    </div>
+    </>
   );
 }

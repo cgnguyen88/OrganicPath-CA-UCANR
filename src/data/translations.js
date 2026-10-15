@@ -20,6 +20,8 @@ const t = {
       federalCode: 'Federal Organic Code',
       stateReg: 'State Registration',
       occsp: 'OCCSP Reimbursement',
+      openMenu: 'Open menu',
+      closeMenu: 'Close menu',
     },
     // Auth
     auth: {
@@ -384,6 +386,8 @@ const t = {
       federalCode: 'Código Orgánico Federal',
       stateReg: 'Registro Estatal',
       occsp: 'Reembolso OCCSP',
+      openMenu: 'Abrir menú',
+      closeMenu: 'Cerrar menú',
     },
     auth: {
       welcome: 'Bienvenido a OrganicPath CA',

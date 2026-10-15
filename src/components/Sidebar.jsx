@@ -1,5 +1,6 @@
+import { useEffect, useRef } from 'react';
 import {
-  Leaf, LayoutDashboard, ClipboardCheck, ListChecks, FileText,
+  X, Leaf, LayoutDashboard, ClipboardCheck, ListChecks, FileText,
   LogOut, Microscope, Users, ClipboardList, DollarSign,
   ShieldCheck, FlaskConical, BadgeCheck, ShieldHalf, Scale, Wrench,
 } from 'lucide-react';
@@ -36,11 +37,19 @@ const initialsOf = (name) => (name ? name.split(' ').filter(Boolean).map((w) => 
  * icons, one accent (the current page), and sections that collapse and remember how you left them.
  * Styling comes from the `.side-menu` rules in global.js, which also provide solid fallbacks for
  * browsers without backdrop blur and for people who ask for reduced transparency or motion.
+ * On a phone (`drawer`) it slides in over the page; while closed it is out of reach of keyboards and
+ * screen readers, and when it opens the focus goes to its close button.
  */
-export default function Sidebar({ activePage, onNavigate, user, farm, onLogout, certificationStatus, onChangeStatus, onSetStatus, needsReviewCount = 0, savedViews = [] }) {
+export default function Sidebar({ activePage, onNavigate, user, farm, onLogout, certificationStatus, onChangeStatus, onSetStatus, needsReviewCount = 0, savedViews = [], drawer = false, open = false, onClose }) {
   const { lang, toggleLang } = useLanguage();
   const tx = t[lang].nav;
   const label = (id) => tx[id];
+  const closeButton = useRef(null);
+  const hidden = drawer && !open;
+
+  useEffect(() => {
+    if (drawer && open) closeButton.current?.focus();
+  }, [drawer, open]);
 
   const coreItems = [
     { id: 'dashboard', icon: LayoutDashboard },
@@ -50,8 +59,11 @@ export default function Sidebar({ activePage, onNavigate, user, farm, onLogout, 
   ];
   const row = ({ id, icon }) => <NavItem key={id} icon={icon} label={label(id)} active={activePage === id} onClick={() => onNavigate(id)} />;
 
+  const className = ['side-menu', 'no-print', drawer && 'side-menu--drawer', drawer && open && 'is-open'].filter(Boolean).join(' ');
   return (
-    <aside className="side-menu no-print" style={{ width: 290, minWidth: 290, height: '100vh', flexShrink: 0, position: 'relative' }}>
+    <>
+    {drawer && open && <div className="menu-scrim no-print" aria-hidden="true" onClick={onClose} />}
+    <aside id="app-menu" className={className} inert={hidden || undefined} aria-hidden={hidden || undefined}>
       {/* A faint, still wash of color behind the glass, so the blur has something to soften. Purely decorative. */}
       <div className="menu-backdrop" aria-hidden="true">
         <span className="menu-orb menu-orb-sky" />
@@ -65,7 +77,12 @@ export default function Sidebar({ activePage, onNavigate, user, farm, onLogout, 
           <div aria-hidden="true" className="menu-mark">
             <Leaf size={16} color="var(--u-navy)" strokeWidth={2.25} />
           </div>
-          <span style={{ color: '#fff', fontFamily: 'Lora, serif', fontWeight: 700, fontSize: 15, letterSpacing: '-0.01em' }}>OrganicPath CA</span>
+          <span style={{ flex: 1, color: '#fff', fontFamily: 'Lora, serif', fontWeight: 700, fontSize: 15, letterSpacing: '-0.01em' }}>OrganicPath CA</span>
+          {drawer && (
+            <button ref={closeButton} type="button" className="menu-icon-button" onClick={onClose} aria-label={tx.closeMenu}>
+              <X size={18} aria-hidden="true" />
+            </button>
+          )}
         </div>
 
         {certificationStatus && (
@@ -123,5 +140,6 @@ export default function Sidebar({ activePage, onNavigate, user, farm, onLogout, 
       </div>
       </div>
     </aside>
+    </>
   );
 }
