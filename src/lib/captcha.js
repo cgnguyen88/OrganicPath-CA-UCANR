@@ -15,8 +15,15 @@ const SCRIPTS = Object.freeze({
 });
 const SITE_KEY = /^[A-Za-z0-9_.-]{8,100}$/;
 
+// Only these two settings are read, by name. Referring to the whole build environment object makes Vite copy
+// every VITE_ variable into the browser bundle, including any secret stored under that prefix by mistake.
+const BUILD_SETTINGS = Object.freeze({
+  VITE_CAPTCHA_PROVIDER: import.meta.env.VITE_CAPTCHA_PROVIDER,
+  VITE_CAPTCHA_SITE_KEY: import.meta.env.VITE_CAPTCHA_SITE_KEY,
+});
+
 /** @returns {{ provider: 'turnstile' | 'hcaptcha', siteKey: string } | null} */
-export function captchaConfig(env = import.meta.env) {
+export function captchaConfig(env = BUILD_SETTINGS) {
   const provider = String(env?.VITE_CAPTCHA_PROVIDER ?? '').trim().toLowerCase();
   const siteKey = String(env?.VITE_CAPTCHA_SITE_KEY ?? '').trim();
   return Object.hasOwn(SCRIPTS, provider) && SITE_KEY.test(siteKey) ? { provider, siteKey } : null;

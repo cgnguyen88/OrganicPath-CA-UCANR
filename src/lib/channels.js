@@ -44,8 +44,12 @@ export async function unlinkTelegram(identityId) {
   return { error: error ? { code: 'unknown' } : null };
 }
 
+// Read by name: referring to the whole build environment object makes Vite copy every VITE_ variable
+// (including the Vercel build details) into the browser bundle.
+const BUILD_SETTINGS = Object.freeze({ VITE_TELEGRAM_BOT_USERNAME: import.meta.env.VITE_TELEGRAM_BOT_USERNAME });
+
 /** The bot's public username from the build environment, or null when it is missing or implausible. */
-export function telegramBotUsername(env = import.meta.env) {
+export function telegramBotUsername(env = BUILD_SETTINGS) {
   const raw = typeof env?.VITE_TELEGRAM_BOT_USERNAME === 'string' ? env.VITE_TELEGRAM_BOT_USERNAME.replace(/^@/, '') : '';
   return BOT_USERNAME.test(raw) ? raw : null;
 }
