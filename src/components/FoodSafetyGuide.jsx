@@ -309,7 +309,7 @@ export default function FoodSafetyGuide() {
       </header>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 32, background: '#f1f5f9', borderRadius: 10, padding: 4 }}>
+      <div className="tab-strip" style={{ display: 'flex', gap: 4, marginBottom: 32, background: '#f1f5f9', borderRadius: 10, padding: 4 }}>
         {TABS.map(tab => {
           const Icon = tab.icon;
           const active = activeTab === tab.id;

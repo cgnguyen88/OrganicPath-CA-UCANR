@@ -465,3 +465,19 @@ describe('FieldsPage: names found in records', () => {
     expect(box.textContent).not.toContain('Block 10');
   });
 });
+
+describe('FieldsPage on a phone', () => {
+  it('marks its table to become cards, and names each cell’s column so a card can label it', async () => {
+    setup();
+    const row = await screen.findByRole('row', { name: /^B2\b/ });
+    expect(row.closest('table').classList.contains('stack-table')).toBe(true);
+    const labels = within(row).getAllByRole('cell').map((cell) => cell.getAttribute('data-label'));
+    expect(labels).toEqual([null, 'Area', 'Crops', 'Approved records', 'Last application', 'Last harvest', 'Status', null]);
+  });
+
+  it('labels the cells in Spanish in a Spanish app', async () => {
+    setup({}, 'es');
+    const row = await screen.findByRole('row', { name: /^B2\b/ });
+    expect(within(row).getAllByRole('cell')[1].getAttribute('data-label')).toBe('Superficie');
+  });
+});

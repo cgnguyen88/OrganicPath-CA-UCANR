@@ -151,7 +151,7 @@ export default function RecordGenerators({ profile, farm, onNavigate }) {
       </div>
 
       {/* Tab bar */}
-      <div style={{ display: 'flex', gap: 0, marginBottom: 24, borderRadius: 12, background: '#f1f5f9', padding: 4, width: 'fit-content' }}>
+      <div className="tab-strip" style={{ display: 'flex', gap: 0, marginBottom: 24, borderRadius: 12, background: '#f1f5f9', padding: 4, width: 'fit-content' }}>
         {TABS.map(tab => (
           <button
             key={tab.id}

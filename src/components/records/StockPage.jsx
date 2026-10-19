@@ -110,24 +110,24 @@ export default function StockPage({ farm, role, onNavigate, onChanged }) {
             <div style={{ ...ui.card, padding: 28, textAlign: 'center', color: '#94a3b8' }}>{tt.noMatch}</div>
           ) : (
             <div style={{ ...ui.card, overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table className="stack-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>{['item', 'onHand', 'reorderAt', 'status', 'omri', 'location', 'lastCounted', 'actions'].map((column) => <th key={column} style={th}>{tt.columns[column]}</th>)}</tr>
                 </thead>
                 <tbody>
                   {shown.map((row) => (
                     <tr key={row.key}>
-                      <td style={{ ...td, fontWeight: 600, color: '#0f172a' }}>{row.item}</td>
-                      <td style={{ ...td, whiteSpace: 'nowrap' }}>{`${formatNumber(row.quantity, lang)} ${row.unit}`.trim()}</td>
-                      <td style={td}>{row.reorderLevel === null ? none : formatNumber(row.reorderLevel, lang)}</td>
-                      <td style={td}><span style={badge(STATUS_TONE[row.status])}>{tt.status[row.status]}</span></td>
-                      <td style={td}>
+                      <td className="stack-title" style={{ ...td, fontWeight: 600, color: '#0f172a' }}>{row.item}</td>
+                      <td data-label={tt.columns.onHand} style={{ ...td, whiteSpace: 'nowrap' }}>{`${formatNumber(row.quantity, lang)} ${row.unit}`.trim()}</td>
+                      <td data-label={tt.columns.reorderAt} style={td}>{row.reorderLevel === null ? none : formatNumber(row.reorderLevel, lang)}</td>
+                      <td data-label={tt.columns.status} style={td}><span style={badge(STATUS_TONE[row.status])}>{tt.status[row.status]}</span></td>
+                      <td data-label={tt.columns.omri} style={td}>
                         <span style={badge(OMRI_TONE[row.omriStatus])}>{optionLabel('inventory', 'omri_status', row.omriStatus, lang)}</span>
                         {row.omriSource === 'records' && <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{tt.omriFromRecords}</div>}
                       </td>
-                      <td style={td}>{row.location || none}</td>
-                      <td style={{ ...td, whiteSpace: 'nowrap' }}>{row.lastCounted ?? none}</td>
-                      <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                      <td data-label={tt.columns.location} style={td}>{row.location || none}</td>
+                      <td data-label={tt.columns.lastCounted} style={{ ...td, whiteSpace: 'nowrap' }}>{row.lastCounted ?? none}</td>
+                      <td className="stack-actions" style={{ ...td, whiteSpace: 'nowrap' }}>
                         <button type="button" aria-label={tt.updateLabel(row.item, row.unit)} onClick={() => open({ prefill: row.startingValues })} style={small}>{tt.updateCount}</button>
                       </td>
                     </tr>

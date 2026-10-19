@@ -294,3 +294,13 @@ describe('StockPage: counting', () => {
     expect(createRecord).not.toHaveBeenCalled();
   });
 });
+
+describe('StockPage on a phone', () => {
+  it('marks its table to become cards, and names each cell’s column so a card can label it', async () => {
+    setup();
+    const row = await loaded();
+    expect(row.closest('table').classList.contains('stack-table')).toBe(true);
+    const labels = within(row).getAllByRole('cell').map((cell) => cell.getAttribute('data-label'));
+    expect(labels).toEqual([null, 'On hand', 'Reorder at', 'Status', 'OMRI', 'Location', 'Last counted', null]);
+  });
+});

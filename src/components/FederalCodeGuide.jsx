@@ -517,7 +517,7 @@ export default function FederalCodeGuide() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 22, borderBottom: '2px solid #e2e8f0' }}>
+      <div className="tab-strip" style={{ display: 'flex', gap: 4, marginBottom: 22, borderBottom: '2px solid #e2e8f0' }}>
         {TABS.map(tb => (
           <button key={tb.id} onClick={() => { setTab(tb.id); setSearch(''); }}
             style={{

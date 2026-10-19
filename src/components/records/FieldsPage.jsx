@@ -129,7 +129,7 @@ export default function FieldsPage({ farm, role }) {
 
       {fields.length > 0 && (
         <div style={{ ...ui.card, overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table className="stack-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>{COLUMNS.map((column) => <th key={column} style={th}>{tt.columns[column]}</th>)}</tr>
             </thead>

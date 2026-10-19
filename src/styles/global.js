@@ -265,6 +265,34 @@ export const GLOBAL_CSS = `
     .code-subpart-list > button { width: auto !important; flex: 0 0 auto; max-width: 180px; margin-bottom: 0 !important; }
     .code-subparts > :last-child { min-width: 0; }
 
+    /* Tables of records, fields and stock: each row becomes a card. The column headings move into the cards
+       (each cell's data-label), the record or item name is the card's title and the buttons sit at its foot. */
+    .stack-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .stack-table, .stack-table tbody { display: block; width: 100%; }
+    .stack-table tr { display: flex; flex-direction: column; width: 100%; padding: 12px 14px; border-bottom: 1px solid #e2e8f0; }
+    .stack-table tr:last-child { border-bottom: 0; }
+    .stack-table td { display: flex; align-items: baseline; gap: 12px; padding: 3px 0 !important; border: 0 !important; white-space: normal !important; text-align: left; }
+    .stack-table td[data-label]::before {
+      content: attr(data-label); flex: 0 0 38%; max-width: 140px;
+      font: 600 11px/1.4 Inter, sans-serif; letter-spacing: .03em; text-transform: uppercase; color: #64748b;
+    }
+    .stack-table td.stack-title { display: block; order: -1; padding-bottom: 6px !important; font-size: 15px !important; }
+    .stack-table td.stack-title button { font-size: 15px !important; }
+    .stack-table td.stack-actions { display: block; padding-top: 10px !important; }
+    .stack-table td.stack-actions button { min-height: 36px; }
+
+    /* Tab bars keep their tabs on one line and scroll sideways, instead of squeezing or overflowing. */
+    .tab-strip { overflow-x: auto; flex-wrap: nowrap !important; width: auto !important; max-width: 100%; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+    .tab-strip::-webkit-scrollbar { display: none; }
+    .tab-strip > * { flex: 0 0 auto !important; white-space: nowrap; }
+
+    /* Change history: what happened and when on the first line, the record and its version below. */
+    .history-row { flex-wrap: wrap; gap: 2px 10px !important; }
+    .history-row > :nth-child(1) { order: 1; width: auto !important; flex: 1; }
+    .history-row > :nth-child(4) { order: 2; width: auto !important; }
+    .history-row > :nth-child(2) { order: 3; flex-basis: 100% !important; }
+    .history-row > :nth-child(3) { order: 4; }
+
     /* Columns that sit side by side on a computer are stacked. */
     .app-main [style*="grid-template-columns: 1fr 1fr"],
     .app-main [style*="grid-template-columns: repeat(3, 1fr)"],

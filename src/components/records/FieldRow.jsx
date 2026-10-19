@@ -17,6 +17,7 @@ export default function FieldRow({ summary, recordsReady, canManage, busy, onDet
   const lang = rawLang === 'es' ? 'es' : 'en';
   const tt = recordsText(lang).fields;
   const none = tt.detail.none;
+  const column = tt.columns;
 
   const { field } = summary;
   const archived = !field.is_active;
@@ -26,21 +27,21 @@ export default function FieldRow({ summary, recordsReady, canManage, busy, onDet
 
   return (
     <tr>
-      <td style={{ ...td, ...muted }}>
+      <td className="stack-title" style={{ ...td, ...muted }}>
         <div style={{ fontWeight: 600, color: archived ? '#94a3b8' : '#0f172a' }}>{field.name}</div>
         {field.notes && <div style={{ fontSize: 12, color: '#94a3b8', whiteSpace: 'pre-wrap' }}>{field.notes}</div>}
       </td>
-      <td style={{ ...td, ...muted, whiteSpace: 'nowrap' }}>{area}</td>
-      <td style={{ ...td, ...muted }}>{recordsReady && summary.crops.length > 0 ? summary.crops.join(', ') : none}</td>
-      <td style={{ ...td, ...muted }}>{recordsReady ? String(summary.uses) : none}</td>
-      <td style={{ ...td, ...muted, whiteSpace: 'nowrap' }}>{(recordsReady && summary.lastApplication) || none}</td>
-      <td style={{ ...td, ...muted, whiteSpace: 'nowrap' }}>{(recordsReady && summary.lastHarvest) || none}</td>
-      <td style={td}>
+      <td data-label={column.area} style={{ ...td, ...muted, whiteSpace: 'nowrap' }}>{area}</td>
+      <td data-label={column.crops} style={{ ...td, ...muted }}>{recordsReady && summary.crops.length > 0 ? summary.crops.join(', ') : none}</td>
+      <td data-label={column.records} style={{ ...td, ...muted }}>{recordsReady ? String(summary.uses) : none}</td>
+      <td data-label={column.lastApplication} style={{ ...td, ...muted, whiteSpace: 'nowrap' }}>{(recordsReady && summary.lastApplication) || none}</td>
+      <td data-label={column.lastHarvest} style={{ ...td, ...muted, whiteSpace: 'nowrap' }}>{(recordsReady && summary.lastHarvest) || none}</td>
+      <td data-label={column.status} style={td}>
         <span style={{ ...(archived ? ui.TONES.muted : ui.TONES.success), padding: '2px 8px', borderRadius: 999, fontSize: 11, fontWeight: 600 }}>
           {archived ? tt.status.archived : tt.status.active}
         </span>
       </td>
-      <td style={{ ...td, whiteSpace: 'nowrap' }}>
+      <td className="stack-actions" style={{ ...td, whiteSpace: 'nowrap' }}>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <button type="button" aria-label={`${tt.actions.details} ${field.name}`} disabled={!recordsReady} onClick={onDetails} style={{ ...small, ...off(!recordsReady) }}>{tt.actions.details}</button>
           {canManage && (

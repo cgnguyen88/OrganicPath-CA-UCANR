@@ -34,7 +34,7 @@ export default function ChangeHistory({ farm }) {
       {revisions && revisions.length > 0 && (
         <div style={ui.card}>
           {revisions.map((rev) => (
-            <div key={rev.id} style={{ display: 'flex', gap: 14, alignItems: 'center', padding: '11px 16px', borderBottom: '1px solid #f1f5f9', fontSize: 13 }}>
+            <div key={rev.id} className="history-row" style={{ display: 'flex', gap: 14, alignItems: 'center', padding: '11px 16px', borderBottom: '1px solid #f1f5f9', fontSize: 13 }}>
               <span style={{ width: 120, fontWeight: 600, color: '#0f172a' }}>{tt.changeTypes[rev.change_type] ?? rev.change_type}</span>
               <span style={{ flex: 1, color: '#334155' }}>{rev.after ? summarizeRecord(rev.after, lang) : ''}</span>
               <span style={{ color: '#94a3b8' }}>{tt.history.version(rev.version)}</span>
