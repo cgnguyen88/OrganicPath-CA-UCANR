@@ -6,7 +6,9 @@ const storageKey = (id) => `orgpath_nav_group_${id}`;
 
 /**
  * A menu section. With a `label` it can be collapsed, and the choice is remembered per section.
- * `forceOpen` keeps it open while the current page is inside it, without overwriting what was saved.
+ * `forceOpen` is for "the current page is inside this section": it opens the section when the page moves into it, without
+ * overwriting what was saved. It never takes the heading away: a section can always be closed, and then stays closed while
+ * the page changes inside it, until the page leaves and comes back.
  * Without a `label` it is just a plain, always-visible list.
  *
  * Give it an `icon` and/or an `accent` colour and it becomes a card of its own: a clearly titled block
@@ -20,12 +22,21 @@ export default function NavGroup({ id, label, icon: Icon, accent, count, default
     return typeof saved === 'boolean' ? saved : defaultOpen;
   });
 
+  // Closed by hand while the page is inside it. Cleared when the page leaves, so coming back opens it again.
+  const [closedByHand, setClosedByHand] = useState(false);
+  const [wasForced, setWasForced] = useState(forceOpen);
+  if (forceOpen !== wasForced) {
+    setWasForced(forceOpen);
+    if (!forceOpen) setClosedByHand(false);
+  }
+
   if (!label) return <div>{children}</div>;
 
-  const shown = open || forceOpen;
+  const shown = open || (forceOpen && !closedByHand);
   const toggle = () => {
     const next = !shown;
     setOpen(next);
+    setClosedByHand(shown);
     saveToStorage(storageKey(id), next);
   };
   const Chevron = shown ? ChevronDown : ChevronRight;

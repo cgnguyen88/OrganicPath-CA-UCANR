@@ -145,3 +145,54 @@ describe('NavGroup as a section card', () => {
   });
 });
 
+describe('NavGroup while the page you are on is inside it', () => {
+  const VARIANTS = [
+    ['a section card', { icon: Wrench, accent: '#5bbcf0' }, /^Compliance Tools/],
+    ['a plain heading', {}, /^Compliance Tools/],
+  ];
+  const group = (props) => (
+    <NavGroup id="tools" label="Compliance Tools" {...props}><button type="button">Item one</button></NavGroup>
+  );
+  const heading = (name) => screen.getByRole('button', { name });
+
+  describe.each(VARIANTS)('as %s', (_name, look, name) => {
+    it('can still be closed from its heading, and opened again', async () => {
+      const user = userEvent.setup();
+      render(group({ ...look, forceOpen: true }));
+      expect(heading(name).getAttribute('aria-expanded')).toBe('true');
+      await user.click(heading(name));
+      expect(heading(name).getAttribute('aria-expanded')).toBe('false');
+      expect(screen.queryByRole('button', { name: 'Item one' })).toBeNull();
+      await user.click(heading(name));
+      expect(heading(name).getAttribute('aria-expanded')).toBe('true');
+      expect(screen.getByRole('button', { name: 'Item one' })).toBeTruthy();
+    });
+
+    it('stays closed when the page changes to another one inside it', async () => {
+      const user = userEvent.setup();
+      const view = render(group({ ...look, forceOpen: true }));
+      await user.click(heading(name));
+      view.rerender(group({ ...look, forceOpen: true }));
+      expect(heading(name).getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('opens when the page moves into it from outside, even after it was closed', async () => {
+      const user = userEvent.setup();
+      const view = render(group({ ...look, forceOpen: true }));
+      await user.click(heading(name));
+      view.rerender(group({ ...look, forceOpen: false }));
+      expect(heading(name).getAttribute('aria-expanded')).toBe('false');
+      view.rerender(group({ ...look, forceOpen: true }));
+      expect(heading(name).getAttribute('aria-expanded')).toBe('true');
+    });
+
+    it('remembers that it was closed, for the next visit', async () => {
+      const user = userEvent.setup();
+      const first = render(group({ ...look, forceOpen: true }));
+      await user.click(heading(name));
+      first.unmount();
+      render(group(look));
+      expect(heading(name).getAttribute('aria-expanded')).toBe('false');
+    });
+  });
+});

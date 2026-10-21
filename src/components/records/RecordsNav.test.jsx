@@ -149,6 +149,18 @@ describe('RecordsNav', () => {
     expect(screen.getByRole('button', { name: /^Needs Review/ })).toBeTruthy(); // but open when you are on one of its pages
   });
 
+  it('can be collapsed while you are on one of its own pages, and stays collapsed as you move between them', async () => {
+    const { user, onNavigate } = setup({ activePage: 'farmRecords' });
+    const heading = () => screen.getByRole('button', { name: 'Farm Records' });
+    expect(heading().getAttribute('aria-expanded')).toBe('true');
+    await user.click(heading());
+    expect(heading().getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('button', { name: /^Needs Review/ })).toBeNull();
+    await user.click(heading());
+    expect(screen.getByRole('button', { name: /^Needs Review/ })).toBeTruthy();
+    expect(onNavigate).not.toHaveBeenCalled();
+  });
+
   it('shows Saved Views as its own section, so collapsing Farm Records does not hide the shortcuts', async () => {
     const { user } = setup();
     await user.click(screen.getByRole('button', { name: 'Farm Records' }));
